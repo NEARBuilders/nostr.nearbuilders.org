@@ -1,13 +1,13 @@
 import { SimplePool } from "nostr-tools/pool";
 import { finalizeEvent } from "nostr-tools/pure";
-import type { NostrEvent, NostrFilter } from "../types.js";
 import type { NostrSubscription } from "../core.js";
+import type { NostrEvent, NostrFilter } from "../types.js";
 import type {
-  RelayAdapter,
   PublishAdapterOptions,
-  QueryAdapterOptions,
-  SubscribeAdapterOptions,
   PublishResult,
+  QueryAdapterOptions,
+  RelayAdapter,
+  SubscribeAdapterOptions,
 } from "./types.js";
 
 // ── StandardAdapter ──
@@ -147,7 +147,9 @@ export class StandardAdapter implements RelayAdapter {
     website?: string | null;
   } | null> {
     try {
-      const events = await this.pool.querySync(this.relays, [{ kinds: [0], authors: [pubkey], limit: 1 }] as any);
+      const events = await this.pool.querySync(this.relays, [
+        { kinds: [0], authors: [pubkey], limit: 1 },
+      ] as any);
       if (events.length === 0) return null;
       const parsed = JSON.parse(events[0].content);
       return { pubkey, ...parsed };
@@ -159,9 +161,9 @@ export class StandardAdapter implements RelayAdapter {
   #buildTags(opts: PublishAdapterOptions): string[][] {
     const tags: string[][] = [];
     // Standard tags first (relay-filterable)
-    tags.push(["t", opts.targetType]);            // topic: project, builder, scope, etc.
-    tags.push(["t", opts.clientName]);            // topic: client attribution
-    tags.push(["p", opts.pubkey]);                // pubkey ref: event author
+    tags.push(["t", opts.targetType]); // topic: project, builder, scope, etc.
+    tags.push(["t", opts.clientName]); // topic: client attribution
+    tags.push(["p", opts.pubkey]); // pubkey ref: event author
     if (opts.nearAccountId) {
       tags.push(["p", `_near:${opts.nearAccountId}`]); // pubkey ref: NEAR account (namespaced)
     }
@@ -169,11 +171,11 @@ export class StandardAdapter implements RelayAdapter {
       tags.push(["e", opts.parentEventId, "", "reply"]); // event ref: parent thread
     }
     if (opts.targetUrl) {
-      tags.push(["r", opts.targetUrl]);                 // URL ref
+      tags.push(["r", opts.targetUrl]); // URL ref
     }
     // App-specific tags (client-side filtering, relay may ignore)
     tags.push(["client", opts.clientName]);
-    tags.push(["near_target", opts.target]);      // e.g. "project:123"
+    tags.push(["near_target", opts.target]); // e.g. "project:123"
     if (opts.nearAccountId) {
       tags.push(["near_account", opts.nearAccountId]);
     }

@@ -33,23 +33,23 @@ export type NostrFilter = {
 // ── Relay Messages (NIP-01) ──
 
 export type RelayMessage =
-  | ["EVENT", string, NostrEvent]      // subscription event
-  | ["OK", string, boolean, string]   // publish ack
-  | ["EOSE", string]                   // end of stored events
-  | ["NOTICE", string];                // relay notice
+  | ["EVENT", string, NostrEvent] // subscription event
+  | ["OK", string, boolean, string] // publish ack
+  | ["EOSE", string] // end of stored events
+  | ["NOTICE", string]; // relay notice
 
 // ── Common Kinds ──
 
 export const Kind = {
-  METADATA: 0,        // NIP-01
-  TEXT_NOTE: 1,        // NIP-01
-  RELAY_LIST: 2,       // NIP-65
-  CONTACT_LIST: 3,     // NIP-02
-  DELETION: 5,         // NIP-09
-  REACTION: 7,         // NIP-25
-  CHANNEL_CREATE: 40,  // NIP-28
-  CHANNEL_META: 41,    // NIP-28
-  CHANNEL_MSG: 42,     // NIP-28
+  METADATA: 0, // NIP-01
+  TEXT_NOTE: 1, // NIP-01
+  RELAY_LIST: 2, // NIP-65
+  CONTACT_LIST: 3, // NIP-02
+  DELETION: 5, // NIP-09
+  REACTION: 7, // NIP-25
+  CHANNEL_CREATE: 40, // NIP-28
+  CHANNEL_META: 41, // NIP-28
+  CHANNEL_MSG: 42, // NIP-28
 } as const;
 
 // ── Connection ──

@@ -1,14 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { ClipboardList, Compass, Globe, Home, Menu, Shield, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import {
-  getAccount,
-  getActiveRuntime,
-  getAppName,
-  sessionQueryOptions,
-  useAuthClient,
-} from "@/app";
+import { getAccount, getActiveRuntime, getAppName, sessionQueryOptions } from "@/app";
 import builtOn from "@/assets/built_on.png";
 import builtOnRev from "@/assets/built_on_rev.png";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -43,18 +36,14 @@ function getUserRole(isAuthenticated: boolean, isAdmin: boolean): SidebarRole {
 
 export const Route = createFileRoute("/_layout")({
   beforeLoad: async ({ context }) => {
-    const { queryClient, authClient, apiClient } = context;
+    const { queryClient, authClient } = context;
     const session = await queryClient.ensureQueryData(
       sessionQueryOptions(authClient, context.session),
     );
 
-    const accountId = getAccount(context.runtimeConfig);
-    const tenant = await apiClient.resolveTenant({ accountId });
-
     return {
       runtimeConfig: context.runtimeConfig,
       session,
-      tenant,
     };
   },
   component: Layout,
@@ -63,29 +52,19 @@ export const Route = createFileRoute("/_layout")({
 function Layout() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isNavigating = useRouterState({ select: (s) => s.status === "pending" });
-  const { runtimeConfig, session, tenant } = Route.useRouteContext();
+  const { runtimeConfig, session } = Route.useRouteContext();
   const appName = getAppName(runtimeConfig);
   const runtime = getActiveRuntime(runtimeConfig);
   const account = getAccount(runtimeConfig);
-  const auth = useAuthClient();
   const isAuthenticated = !!session?.user;
   const userRole = getUserRole(isAuthenticated, session?.user?.role === "admin");
-
-  const { data: liveSession } = useQuery({
-    ...sessionQueryOptions(auth, session),
-    initialData: session,
-  });
-  const activeOrgId = liveSession?.session?.activeOrganizationId ?? null;
-  const liveIsTenantMember = !!tenant && !!activeOrgId && activeOrgId === tenant.orgId;
 
   const hideSidebar = pathname === "/login";
 
   const sidebarItems: SidebarItem[] = [
     { icon: Home, label: "home", to: "/home", roleRequired: "anon" },
     { icon: Globe, label: "apps", to: "/apps", roleRequired: "anon" },
-    ...(liveIsTenantMember
-      ? ([{ icon: Shield, label: "admin", to: "/admin", roleRequired: "member" }] as SidebarItem[])
-      : []),
+    { icon: Shield, label: "admin", to: "/admin", roleRequired: "admin" },
   ];
   const visibleItems = filterSidebarByRole(sidebarItems, userRole);
 
@@ -161,12 +140,6 @@ function Layout() {
                 </Link>
 
                 <div className="hidden sm:flex items-center gap-2">
-                  {tenant && (
-                    <>
-                      <span>{tenant.name}</span>
-                      <span>/</span>
-                    </>
-                  )}
                   <span>{runtime?.accountId ?? account}</span>
                   <span>/</span>
                   <span className="truncate">

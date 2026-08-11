@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { AuthPanel } from "./AuthPanel";
 import type { SignerState } from "./AuthPanel";
-import { PublishPanel } from "./PublishPanel";
-import { ListPanel } from "./ListPanel";
+import { AuthPanel } from "./AuthPanel";
 import { LinkPanel } from "./LinkPanel";
+import { ListPanel } from "./ListPanel";
+import { PublishPanel } from "./PublishPanel";
 import { RawQueryPanel } from "./RawQueryPanel";
 import { SignPanel } from "./SignPanel";
 

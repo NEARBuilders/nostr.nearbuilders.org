@@ -1,68 +1,33 @@
-import { createFileRoute, Link, redirect } from "@tanstack/react-router";
-import { Shield, Users } from "lucide-react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { Building2, Settings, Shield, Users } from "lucide-react";
 import { getAccount } from "@/app";
-import { Card } from "@/components";
+import { Button, Card } from "@/components";
 import { EmptyState } from "@/components/empty-state";
 import { PageContainer } from "@/components/layout/page-container";
-import { InfoRow } from "@/components/ui/info-row";
 
 export const Route = createFileRoute("/_layout/_authenticated/admin")({
   head: () => ({
     meta: [{ title: "Admin | app" }],
   }),
-  beforeLoad: async ({ context }) => {
-    const { apiClient, runtimeConfig } = context;
-    const accountId = getAccount(runtimeConfig);
-    let tenant: Awaited<ReturnType<typeof apiClient.resolveTenant>> | null = null;
-    try {
-      tenant = await apiClient.resolveTenant({ accountId });
-    } catch {
-      tenant = null;
-    }
-    if (!tenant) {
-      throw redirect({ to: "/" });
-    }
-    return { tenant };
-  },
   component: AdminPage,
 });
 
 function AdminPage() {
-  const { tenant, session } = Route.useRouteContext();
+  const { session } = Route.useRouteContext();
+  const account = getAccount();
+  const user = session?.user ?? null;
+  const isAdmin = user?.role === "admin";
 
-  const activeOrgId = session?.session?.activeOrganizationId ?? null;
-  const isMember = !!tenant && !!activeOrgId && activeOrgId === tenant.orgId;
-  const isAdmin = session?.user?.role === "admin";
-  const authorized = isMember || isAdmin;
-
-  if (!tenant) return null;
-
-  if (!authorized) {
+  if (!isAdmin) {
     return (
       <EmptyState
         icon={Shield}
         title="Not authorized"
-        description={
-          <>
-            You need to be a member of <span className="font-mono">{tenant.subdomain}</span>'s
-            organization to access tenant admin.
-          </>
-        }
+        description="You need an admin account to access this dashboard."
         action={
-          <div className="flex justify-center gap-2">
-            <Link
-              to="/"
-              className="h-10 px-4 inline-flex items-center gap-1.5 text-sm font-medium border-2 border-outset border-border-strong bg-card text-foreground shadow-sm hover:shadow-md active:border-inset active:shadow-none transition-all duration-200 ease-out rounded-[12px]"
-            >
-              home
-            </Link>
-            <Link
-              to="/organizations"
-              className="h-10 px-4 inline-flex items-center gap-1.5 text-sm font-medium border-2 border-outset border-border-strong bg-card text-foreground shadow-sm hover:shadow-md active:border-inset active:shadow-none transition-all duration-200 ease-out rounded-[12px]"
-            >
-              organizations
-            </Link>
-          </div>
+          <Button asChild variant="outline">
+            <Link to="/home">back to workspace</Link>
+          </Button>
         }
       />
     );
@@ -79,71 +44,57 @@ function AdminPage() {
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div className="space-y-1">
               <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
-                {tenant.name}
+                Dashboard
               </h1>
-              <p className="text-[11px] font-mono text-muted-foreground">
-                {tenant.subdomain} · {tenant.accountId}
+              <p className="text-sm text-muted-foreground">
+                Signed in as <span className="font-mono">{account}</span>
               </p>
             </div>
           </div>
         </header>
 
         <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard label="Subdomain" value={tenant.subdomain} mono />
-          <StatCard label="Account" value={tenant.accountId} mono />
-          <StatCard
-            label="Organization"
-            value={
-              <Link
-                to="/organizations/$slug"
-                params={{ slug: tenant.subdomain }}
-                className="text-foreground hover:underline font-mono"
-              >
-                {tenant.subdomain}
-              </Link>
-            }
-          />
+          <StatCard label="Account" value={account} mono />
+          <StatCard label="Name" value={user?.name || user?.email || "—"} />
+          <StatCard label="Role" value={user?.role ?? "—"} />
           <StatCard
             label="Created"
-            value={tenant.createdAt ? new Date(tenant.createdAt).toLocaleDateString() : "—"}
+            value={user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : "—"}
           />
         </section>
 
         <section className="space-y-3">
-          <SectionHeader title="Tenant details" />
-          <Card className="p-6 space-y-4">
-            <div className="text-muted-foreground text-[11px] font-bold uppercase tracking-wider">
-              Configuration
-            </div>
-            <div className="flex flex-col gap-2">
-              <InfoRow label="name" value={tenant.name} />
-              <InfoRow label="subdomain" value={tenant.subdomain} mono />
-              <InfoRow label="account" value={tenant.accountId} mono />
-              <InfoRow label="org Id" value={tenant.orgId} mono />
-              <InfoRow
-                label="created"
-                value={tenant.createdAt ? new Date(tenant.createdAt).toLocaleDateString() : "—"}
-              />
-            </div>
-          </Card>
-        </section>
+          <h2 className="text-lg font-semibold text-foreground">Manage</h2>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <Card className="p-6 space-y-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-foreground text-background">
+                <Building2 className="h-4 w-4" />
+              </div>
+              <h3 className="text-base font-semibold text-foreground">Organizations</h3>
+              <p className="text-sm text-muted-foreground">
+                Manage organizations, members, roles, and invitations.
+              </p>
+              <Button asChild variant="outline" size="sm">
+                <Link to="/organizations">
+                  <Users className="h-3.5 w-3.5" />
+                  open organizations
+                </Link>
+              </Button>
+            </Card>
 
-        <section className="space-y-3">
-          <SectionHeader title="Members & permissions" />
-          <Card className="p-4 space-y-3">
-            <p className="text-sm text-muted-foreground">
-              This tenant is backed by an organization. Manage members, roles, and invitations
-              there.
-            </p>
-            <Link
-              to="/organizations/$slug"
-              params={{ slug: tenant.subdomain }}
-              className="h-9 px-3 inline-flex items-center gap-1.5 text-xs font-medium border-2 border-outset border-border-strong bg-card text-foreground shadow-sm hover:shadow-md active:border-inset active:shadow-none transition-all duration-200 ease-out rounded-[10px]"
-            >
-              <Users className="h-3.5 w-3.5" />
-              open organization
-            </Link>
-          </Card>
+            <Card className="p-6 space-y-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-foreground text-background">
+                <Settings className="h-4 w-4" />
+              </div>
+              <h3 className="text-base font-semibold text-foreground">Settings</h3>
+              <p className="text-sm text-muted-foreground">
+                Update your profile, auth methods, and security preferences.
+              </p>
+              <Button asChild variant="outline" size="sm">
+                <Link to="/settings">open settings</Link>
+              </Button>
+            </Card>
+          </div>
         </section>
       </div>
     </PageContainer>
@@ -169,15 +120,6 @@ function StatCard({
       >
         {value}
       </div>
-    </div>
-  );
-}
-
-function SectionHeader({ title, action }: { title: string; action?: React.ReactNode }) {
-  return (
-    <div className="flex items-end justify-between gap-3">
-      <h2 className="text-lg font-semibold text-foreground">{title}</h2>
-      {action}
     </div>
   );
 }

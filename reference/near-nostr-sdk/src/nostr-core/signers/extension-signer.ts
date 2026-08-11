@@ -27,8 +27,10 @@ export class ExtensionSigner implements NostrSigner {
   get nip04() {
     if (this.ext.nip04) {
       return {
-        encrypt: (recipient: string, plaintext: string) => this.ext.nip04!.encrypt(recipient, plaintext),
-        decrypt: (sender: string, ciphertext: string) => this.ext.nip04!.decrypt(sender, ciphertext),
+        encrypt: (recipient: string, plaintext: string) =>
+          this.ext.nip04!.encrypt(recipient, plaintext),
+        decrypt: (sender: string, ciphertext: string) =>
+          this.ext.nip04!.decrypt(sender, ciphertext),
       };
     }
     return undefined;
@@ -37,8 +39,10 @@ export class ExtensionSigner implements NostrSigner {
   get nip44() {
     if (this.ext.nip44) {
       return {
-        encrypt: (recipient: string, plaintext: string) => this.ext.nip44!.encrypt(recipient, plaintext),
-        decrypt: (sender: string, ciphertext: string) => this.ext.nip44!.decrypt(sender, ciphertext),
+        encrypt: (recipient: string, plaintext: string) =>
+          this.ext.nip44!.encrypt(recipient, plaintext),
+        decrypt: (sender: string, ciphertext: string) =>
+          this.ext.nip44!.decrypt(sender, ciphertext),
       };
     }
     return undefined;

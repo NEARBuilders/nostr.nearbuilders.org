@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { ExtensionSigner, type NostrSigner, type WindowNostr } from "near-nostr-sdk";
 import { generateSecretKey, getPublicKey, nip19 } from "nostr-tools";
-import { hexToBytes, bytesToHex } from "nostr-tools/utils";
 import { finalizeEvent } from "nostr-tools/pure";
-import { ExtensionSigner, type WindowNostr, type NostrSigner } from "near-nostr-sdk";
+import { bytesToHex, hexToBytes } from "nostr-tools/utils";
+import { useEffect, useState } from "react";
 import { Log } from "./Log";
 
 type LogLine = { text: string; cls: string };
@@ -37,16 +37,22 @@ function loadSession(): SignerState {
 function saveSession(state: SignerState) {
   try {
     if (state.mode === "nsec" && state.secretKey) {
-      localStorage.setItem(LS_KEY, JSON.stringify({
-        mode: "nsec",
-        secretKeyHex: bytesToHex(state.secretKey),
-        pubkey: state.pubkey,
-      }));
+      localStorage.setItem(
+        LS_KEY,
+        JSON.stringify({
+          mode: "nsec",
+          secretKeyHex: bytesToHex(state.secretKey),
+          pubkey: state.pubkey,
+        }),
+      );
     } else if (state.mode === "extension" && state.pubkey) {
-      localStorage.setItem(LS_KEY, JSON.stringify({
-        mode: "extension",
-        pubkey: state.pubkey,
-      }));
+      localStorage.setItem(
+        LS_KEY,
+        JSON.stringify({
+          mode: "extension",
+          pubkey: state.pubkey,
+        }),
+      );
     } else {
       localStorage.removeItem(LS_KEY);
     }
@@ -60,8 +66,7 @@ export function AuthPanel({ onReady }: { onReady: (state: SignerState) => void }
   const [nip07Available, setNip07Available] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const log = (text: string, cls = "") =>
-    setLogs((prev) => [...prev, { text, cls }]);
+  const log = (text: string, cls = "") => setLogs((prev) => [...prev, { text, cls }]);
 
   // Check for NIP-07 extension on mount + delayed poll for Firefox
   useEffect(() => {
@@ -72,7 +77,10 @@ export function AuthPanel({ onReady }: { onReady: (state: SignerState) => void }
     check();
     const t1 = setTimeout(check, 1000);
     const t2 = setTimeout(check, 2500);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
   }, []);
 
   // Restore extension signer if session persisted
@@ -160,7 +168,12 @@ export function AuthPanel({ onReady }: { onReady: (state: SignerState) => void }
   };
 
   // Build a unified sign function from whatever mode we're in
-  const signEvent = async (template: { kind: number; content: string; tags: string[][]; created_at: number }) => {
+  const signEvent = async (template: {
+    kind: number;
+    content: string;
+    tags: string[][];
+    created_at: number;
+  }) => {
     if (state.mode === "extension" && state.signer) {
       return state.signer.signEvent(template);
     }
@@ -177,25 +190,45 @@ export function AuthPanel({ onReady }: { onReady: (state: SignerState) => void }
         <>
           <div className="status">
             <span className="badge green">{state.mode}</span>
-            <span className="dim" style={{ fontSize: 11 }}>{state.pubkey.slice(0, 20)}...</span>
+            <span className="dim" style={{ fontSize: 11 }}>
+              {state.pubkey.slice(0, 20)}...
+            </span>
           </div>
-          <button className="btn danger" onClick={disconnect}>Disconnect</button>
+          <button className="btn danger" onClick={disconnect}>
+            Disconnect
+          </button>
         </>
       ) : (
         <>
           <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
-            <button className="btn primary" disabled={!nip07Available || loading} onClick={handleExtensionLogin}>
+            <button
+              className="btn primary"
+              disabled={!nip07Available || loading}
+              onClick={handleExtensionLogin}
+            >
               Extension
             </button>
             <button className="btn" disabled={loading} onClick={handleGenerate}>
               Generate
             </button>
-            <button className="btn" disabled={!nsecInput.trim() || loading} onClick={handleNsecLogin}>
+            <button
+              className="btn"
+              disabled={!nsecInput.trim() || loading}
+              onClick={handleNsecLogin}
+            >
               Import
             </button>
           </div>
-          {!nip07Available && <p style={{ fontSize: 11, color: "#666", marginBottom: 8 }}>No NIP-07 extension detected — try Generate or Import</p>}
-          <input placeholder="nsec1... or hex" value={nsecInput} onChange={(e) => setNsecInput(e.target.value)} />
+          {!nip07Available && (
+            <p style={{ fontSize: 11, color: "#666", marginBottom: 8 }}>
+              No NIP-07 extension detected — try Generate or Import
+            </p>
+          )}
+          <input
+            placeholder="nsec1... or hex"
+            value={nsecInput}
+            onChange={(e) => setNsecInput(e.target.value)}
+          />
         </>
       )}
       <hr className="sep" />
@@ -203,4 +236,3 @@ export function AuthPanel({ onReady }: { onReady: (state: SignerState) => void }
     </div>
   );
 }
-

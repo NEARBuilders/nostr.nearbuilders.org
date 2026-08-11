@@ -1,14 +1,10 @@
-import { useState } from "react";
-import { StandardAdapter, type NearNostrTargetType } from "near-nostr-sdk";
+import { type NearNostrTargetType, StandardAdapter } from "near-nostr-sdk";
 import { finalizeEvent } from "nostr-tools/pure";
-import { type SignerState } from "./AuthPanel";
+import { useState } from "react";
+import type { SignerState } from "./AuthPanel";
 import { Log, type LogLine } from "./Log";
 
-const DEFAULT_RELAYS = [
-  "wss://relay.damus.io",
-  "wss://nos.lol",
-  "wss://relay.primal.net",
-];
+const DEFAULT_RELAYS = ["wss://relay.damus.io", "wss://nos.lol", "wss://relay.primal.net"];
 
 const TARGET_TYPES: NearNostrTargetType[] = ["builder", "project", "scope", "submission", "page"];
 
@@ -19,8 +15,7 @@ export function PublishPanel({ signerState }: { signerState: SignerState }) {
   const [targetType, setTargetType] = useState<NearNostrTargetType>("project");
   const [loading, setLoading] = useState(false);
 
-  const log = (text: string, cls = "") =>
-    setLogs((prev) => [...prev, { text, cls }]);
+  const log = (text: string, cls = "") => setLogs((prev) => [...prev, { text, cls }]);
 
   const publish = async () => {
     if (signerState.mode === "none") return;
@@ -35,10 +30,10 @@ export function PublishPanel({ signerState }: { signerState: SignerState }) {
       // query filters on #t: [targetType, clientName]
       // then client-side filters on near_target tag
       const tags: string[][] = [
-        ["t", targetType],        // relay-filterable: matches query #t filter
-        ["t", clientName],        // relay-filterable: matches query #t filter
-        ["p", pubkey],            // author
-        ["client", clientName],   // app tag
+        ["t", targetType], // relay-filterable: matches query #t filter
+        ["t", clientName], // relay-filterable: matches query #t filter
+        ["p", pubkey], // author
+        ["client", clientName], // app tag
         ["near_target", targetKey], // client-side filter key
       ];
 
@@ -81,14 +76,32 @@ export function PublishPanel({ signerState }: { signerState: SignerState }) {
   return (
     <div className="panel">
       <h2>Publish (Kind 1)</h2>
-      <div className="row"><label>Content</label><textarea value={content} onChange={(e) => setContent(e.target.value)} /></div>
-      <div className="row"><label>Target</label><input value={target} onChange={(e) => setTarget(e.target.value)} /></div>
-      <div className="row"><label>Type</label>
-        <select value={targetType} onChange={(e) => setTargetType(e.target.value as NearNostrTargetType)}>
-          {TARGET_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+      <div className="row">
+        <label>Content</label>
+        <textarea value={content} onChange={(e) => setContent(e.target.value)} />
+      </div>
+      <div className="row">
+        <label>Target</label>
+        <input value={target} onChange={(e) => setTarget(e.target.value)} />
+      </div>
+      <div className="row">
+        <label>Type</label>
+        <select
+          value={targetType}
+          onChange={(e) => setTargetType(e.target.value as NearNostrTargetType)}
+        >
+          {TARGET_TYPES.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
         </select>
       </div>
-      <button className="btn primary" disabled={signerState.mode === "none" || loading} onClick={publish}>
+      <button
+        className="btn primary"
+        disabled={signerState.mode === "none" || loading}
+        onClick={publish}
+      >
         {loading ? "Signing..." : "Publish"}
       </button>
       <hr className="sep" />

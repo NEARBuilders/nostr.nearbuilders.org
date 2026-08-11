@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { type SignerState } from "./AuthPanel";
+import type { SignerState } from "./AuthPanel";
 import { Log, type LogLine } from "./Log";
 
 export function SignPanel({ signerState }: { signerState: SignerState }) {
@@ -9,8 +9,7 @@ export function SignPanel({ signerState }: { signerState: SignerState }) {
   const [tags, setTags] = useState('[["t","test"]]');
   const [loading, setLoading] = useState(false);
 
-  const log = (text: string, cls = "") =>
-    setLogs((prev) => [...prev, { text, cls }]);
+  const log = (text: string, cls = "") => setLogs((prev) => [...prev, { text, cls }]);
 
   const sign = async () => {
     if (signerState.mode === "none") return;
@@ -20,7 +19,9 @@ export function SignPanel({ signerState }: { signerState: SignerState }) {
       log(`Signing kind ${kind} event...`, "dim");
 
       let parsedTags: string[][] = [];
-      try { parsedTags = JSON.parse(tags); } catch {}
+      try {
+        parsedTags = JSON.parse(tags);
+      } catch {}
 
       const template = {
         kind,
@@ -53,10 +54,27 @@ export function SignPanel({ signerState }: { signerState: SignerState }) {
   return (
     <div className="panel">
       <h2>Sign Event</h2>
-      <div className="row"><label>Kind</label><input type="number" value={kind} onChange={(e) => setKind(parseInt(e.target.value) || 1)} /></div>
-      <div className="row"><label>Content</label><textarea value={content} onChange={(e) => setContent(e.target.value)} /></div>
-      <div className="row"><label>Tags (JSON)</label><input value={tags} onChange={(e) => setTags(e.target.value)} /></div>
-      <button className="btn primary" disabled={signerState.mode === "none" || loading} onClick={sign}>
+      <div className="row">
+        <label>Kind</label>
+        <input
+          type="number"
+          value={kind}
+          onChange={(e) => setKind(parseInt(e.target.value) || 1)}
+        />
+      </div>
+      <div className="row">
+        <label>Content</label>
+        <textarea value={content} onChange={(e) => setContent(e.target.value)} />
+      </div>
+      <div className="row">
+        <label>Tags (JSON)</label>
+        <input value={tags} onChange={(e) => setTags(e.target.value)} />
+      </div>
+      <button
+        className="btn primary"
+        disabled={signerState.mode === "none" || loading}
+        onClick={sign}
+      >
         {loading ? "Approve..." : "Sign"}
       </button>
       <hr className="sep" />

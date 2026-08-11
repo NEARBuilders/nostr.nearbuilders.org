@@ -1,4 +1,9 @@
-import { getPublicKey as nostrGetPubkey, finalizeEvent, type EventTemplate, type VerifiedEvent } from "nostr-tools/pure";
+import {
+  type EventTemplate,
+  finalizeEvent,
+  getPublicKey as nostrGetPubkey,
+  type VerifiedEvent,
+} from "nostr-tools/pure";
 import type { NostrSigner } from "./types.js";
 
 /**

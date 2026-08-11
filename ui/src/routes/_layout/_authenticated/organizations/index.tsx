@@ -2,13 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { Building2, Mail, Plus, RefreshCw, Users } from "lucide-react";
 import { toast } from "sonner";
-import {
-  type Organization,
-  type SessionData,
-  sessionQueryOptions,
-  useApiClient,
-  useAuthClient,
-} from "@/app";
+import { type Organization, type SessionData, sessionQueryOptions, useAuthClient } from "@/app";
 import { Button, Card } from "@/components";
 import { PageContainer } from "@/components/layout/page-container";
 
@@ -50,7 +44,6 @@ export const Route = createFileRoute("/_layout/_authenticated/organizations/")({
 
 function OrganizationsList() {
   const auth = useAuthClient();
-  const apiClient = useApiClient();
   const router = useRouter();
   const queryClient = useQueryClient();
   const { data: session } = useQuery<SessionData | null>({
@@ -81,18 +74,6 @@ function OrganizationsList() {
   });
 
   const orgs = organizations || [];
-
-  const { data: tenantOrgIds = new Set<string>() } = useQuery({
-    queryKey: ["tenant-orgs", orgs.map((o) => o.id)],
-    queryFn: async () => {
-      const results = await Promise.allSettled(
-        orgs.map((o) => apiClient.resolveTenantByOrgId({ orgId: o.id })),
-      );
-      return new Set(orgs.filter((_, i) => results[i]?.status === "fulfilled").map((o) => o.id));
-    },
-    enabled: orgs.length > 0,
-    staleTime: 60 * 1000,
-  });
 
   const pendingInvitations = userInvitations.filter((i) => i.status === "pending");
 
@@ -266,7 +247,6 @@ function OrganizationsList() {
                 const isPersonal = user
                   ? org.slug === user.id || org.metadata?.isPersonal === true
                   : false;
-                const hasTenant = tenantOrgIds.has(org.id);
 
                 return (
                   <Card key={org.id} className="p-6 space-y-5 hover:shadow-md">
@@ -289,7 +269,6 @@ function OrganizationsList() {
                           </span>
                           {isActive && <Chip>active</Chip>}
                           {isPersonal && <Chip>personal</Chip>}
-                          {hasTenant && <Chip>tenant</Chip>}
                         </div>
                         <div className="text-sm font-mono text-muted-foreground">@{org.slug}</div>
                       </div>

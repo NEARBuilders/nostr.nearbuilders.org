@@ -1,20 +1,20 @@
-import {
-  SimplePool,
-} from "nostr-tools/pool";
-import {
-  generateSecretKey,
-  getPublicKey,
-  finalizeEvent,
-} from "nostr-tools/pure";
+import { SimplePool } from "nostr-tools/pool";
+import { finalizeEvent, generateSecretKey, getPublicKey } from "nostr-tools/pure";
 import type {
+  ConnectionResult,
   NostrEvent,
-  UnsignedNostrEvent,
   NostrFilter,
   RelayMessage,
-  ConnectionResult,
+  UnsignedNostrEvent,
 } from "./types.js";
 
-export type { NostrEvent, UnsignedNostrEvent, NostrFilter, RelayMessage, ConnectionResult } from "./types.js";
+export type {
+  ConnectionResult,
+  NostrEvent,
+  NostrFilter,
+  RelayMessage,
+  UnsignedNostrEvent,
+} from "./types.js";
 export { Kind } from "./types.js";
 
 // ── Config ──
@@ -91,10 +91,7 @@ export class NostrCore {
 
   async queryEvents(opts: QueryOptions): Promise<NostrEvent[]> {
     const relays = opts.relays ?? this.#relays;
-    const events = await this.pool.querySync(
-      relays,
-      opts.filters as any,
-    );
+    const events = await this.pool.querySync(relays, opts.filters as any);
     return events as unknown as NostrEvent[];
   }
 
@@ -104,18 +101,14 @@ export class NostrCore {
     const relays = opts.relays ?? this.#relays;
     let closed = false;
 
-    const closer = this.pool.subscribeMany(
-      relays,
-      [opts.filters] as any,
-      {
-        onevent: (event: any) => {
-          if (!closed && eventCb) eventCb(event as unknown as NostrEvent);
-        },
-        oneose: () => {
-          if (!closed && eoseCb) eoseCb();
-        },
+    const closer = this.pool.subscribeMany(relays, [opts.filters] as any, {
+      onevent: (event: any) => {
+        if (!closed && eventCb) eventCb(event as unknown as NostrEvent);
       },
-    );
+      oneose: () => {
+        if (!closed && eoseCb) eoseCb();
+      },
+    });
 
     let eventCb: ((event: NostrEvent) => void) | null = null;
     let eoseCb: (() => void) | null = null;

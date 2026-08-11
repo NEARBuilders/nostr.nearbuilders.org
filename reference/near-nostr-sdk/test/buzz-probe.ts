@@ -1,7 +1,8 @@
 // Probe: connect to Buzz relay with NIP-42 auth, list channels + messages
-import WebSocket from "ws";
-import { getPublicKey, finalizeEvent } from "nostr-tools/pure";
+
 import * as nip19 from "nostr-tools/nip19";
+import { finalizeEvent, getPublicKey } from "nostr-tools/pure";
+import WebSocket from "ws";
 
 const RELAY = "wss://nearbuilders.communities.buzz.xyz";
 const NSEC = "nsec1s7x3p6h8he7c2gf3fhrypagdd2zeaslgz8dcmsec7k90us6vncmq2lh7ma";
@@ -24,14 +25,25 @@ function send(ws: WebSocket, msg: any) {
 
 function signAuthEvent(challenge: string, relay: string): string {
   const event = finalizeEvent(
-    { kind: 22242, created_at: Math.floor(Date.now() / 1000), tags: [["relay", relay], ["challenge", challenge]], content: "" },
+    {
+      kind: 22242,
+      created_at: Math.floor(Date.now() / 1000),
+      tags: [
+        ["relay", relay],
+        ["challenge", challenge],
+      ],
+      content: "",
+    },
     secretKey,
   );
   return JSON.stringify(["AUTH", event]);
 }
 
 await new Promise<void>((resolve) => {
-  const timeout = setTimeout(() => { console.log("Timeout"); process.exit(1); }, 15000);
+  const timeout = setTimeout(() => {
+    console.log("Timeout");
+    process.exit(1);
+  }, 15000);
   const ws = new WebSocket(RELAY);
 
   ws.on("open", () => {
@@ -55,7 +67,7 @@ await new Promise<void>((resolve) => {
 
     if (t === "OK") {
       const ok = msg[2];
-      console.log(`← OK id=${msg[1].slice(0,12)}... ${ok} ${msg[3] || ""}`);
+      console.log(`← OK id=${msg[1].slice(0, 12)}... ${ok} ${msg[3] || ""}`);
       if (ok && !authed) {
         authed = true;
         console.log("\n✓ Authenticated! Querying...\n");
@@ -77,10 +89,13 @@ await new Promise<void>((resolve) => {
       } else if (event.kind === 9007) {
         console.log(`   GROUP: "${name}" (d=${d})`);
       } else if (event.kind === 39002) {
-        const members = event.tags.filter((t: string[]) => t[0] === "p").map((t: string[]) => t[1].slice(0, 12) + "...");
+        const members = event.tags
+          .filter((t: string[]) => t[0] === "p")
+          .map((t: string[]) => t[1].slice(0, 12) + "...");
         console.log(`   MEMBERS [${d}]: ${members.length} members`);
       } else if (event.kind === 39001) {
-        const admins = event.tags.filter((t: string[]) => t[0] === "p")
+        const admins = event.tags
+          .filter((t: string[]) => t[0] === "p")
           .map((t: string[]) => `${t[1].slice(0, 12)}... (${t[2] || "member"})`);
         console.log(`   ADMINS [${d}]: ${admins.join(", ")}`);
       } else if (event.kind === 9) {
@@ -94,7 +109,7 @@ await new Promise<void>((resolve) => {
       console.log(`← EOSE [${msg[1]}] (${eoseCount}/4)`);
       if (eoseCount === 4) {
         console.log("\n=== Fetching recent messages from each channel ===\n");
-        const channels = results.filter(r => r.subId === "channels" && r.event.kind === 39000);
+        const channels = results.filter((r) => r.subId === "channels" && r.event.kind === 39000);
         for (const ch of channels.slice(0, 5)) {
           const h = ch.event.tags.find((t: string[]) => t[0] === "d")?.[1];
           if (h) send(ws, ["REQ", `msgs-${h.slice(0, 8)}`, { kinds: [9], "#h": [h], limit: 3 }]);
@@ -126,6 +141,11 @@ await new Promise<void>((resolve) => {
     }
   });
 
-  ws.on("error", (err: Error) => { console.error(`✗ ${err.message}`); resolve(); });
-  ws.on("close", () => { resolve(); });
+  ws.on("error", (err: Error) => {
+    console.error(`✗ ${err.message}`);
+    resolve();
+  });
+  ws.on("close", () => {
+    resolve();
+  });
 });

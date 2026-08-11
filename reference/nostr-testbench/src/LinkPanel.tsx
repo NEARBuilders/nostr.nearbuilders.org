@@ -1,28 +1,27 @@
-import { useState, useEffect, useRef } from "react";
 import { NearConnector } from "@hot-labs/near-connect";
 import { NearNostr } from "near-nostr-sdk";
 import { finalizeEvent } from "nostr-tools/pure";
+import { useEffect, useRef, useState } from "react";
 import type { SignerState } from "./AuthPanel";
 import { Log, type LogLine } from "./Log";
 
-const DEFAULT_RELAYS = [
-  "wss://relay.damus.io",
-  "wss://nos.lol",
-  "wss://relay.primal.net",
-];
+const DEFAULT_RELAYS = ["wss://relay.damus.io", "wss://nos.lol", "wss://relay.primal.net"];
 
 export function LinkPanel({ signerState }: { signerState: SignerState }) {
   const [logs, setLogs] = useState<LogLine[]>([]);
   const [account, setAccount] = useState("");
   const [linkStep, setLinkStep] = useState<"idle" | "challenge" | "signed" | "bound">("idle");
   const [challenge, setChallenge] = useState("");
-  const [bindingArgs, setBindingArgs] = useState<{ contract: string; method: string; args: Record<string, unknown> } | null>(null);
+  const [bindingArgs, setBindingArgs] = useState<{
+    contract: string;
+    method: string;
+    args: Record<string, unknown>;
+  } | null>(null);
   const [loading, setLoading] = useState(false);
 
   const connectorRef = useRef<NearConnector | null>(null);
 
-  const log = (text: string, cls = "") =>
-    setLogs((prev) => [...prev, { text, cls }]);
+  const log = (text: string, cls = "") => setLogs((prev) => [...prev, { text, cls }]);
 
   const nn = new NearNostr({ relays: DEFAULT_RELAYS });
 
@@ -45,12 +44,16 @@ export function LinkPanel({ signerState }: { signerState: SignerState }) {
     });
 
     // Check existing session
-    connector.wallet().then((w) => w.getAccounts()).then((accts) => {
-      if (accts.length) {
-        setAccount(accts[0].accountId);
-        log(`Wallet session: ${accts[0].accountId}`, "dim");
-      }
-    }).catch(() => {});
+    connector
+      .wallet()
+      .then((w) => w.getAccounts())
+      .then((accts) => {
+        if (accts.length) {
+          setAccount(accts[0].accountId);
+          log(`Wallet session: ${accts[0].accountId}`, "dim");
+        }
+      })
+      .catch(() => {});
   }, []);
 
   // Step 1: Generate challenge
@@ -217,13 +220,25 @@ export function LinkPanel({ signerState }: { signerState: SignerState }) {
         </button>
       ) : (
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          <button className="btn primary" disabled={!isReady || loading} onClick={generateChallenge}>
+          <button
+            className="btn primary"
+            disabled={!isReady || loading}
+            onClick={generateChallenge}
+          >
             1. Challenge
           </button>
-          <button className="btn" disabled={linkStep !== "challenge" || loading} onClick={signChallenge}>
+          <button
+            className="btn"
+            disabled={linkStep !== "challenge" || loading}
+            onClick={signChallenge}
+          >
             2. Sign
           </button>
-          <button className="btn primary" disabled={linkStep !== "signed" || loading} onClick={connectAndSend}>
+          <button
+            className="btn primary"
+            disabled={linkStep !== "signed" || loading}
+            onClick={connectAndSend}
+          >
             3. Wallet
           </button>
           <button className="btn" disabled={!account || loading} onClick={checkBinding}>

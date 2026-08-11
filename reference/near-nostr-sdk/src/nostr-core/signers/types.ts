@@ -48,7 +48,11 @@ export function detectNostrExtension(): WindowNostr | null {
   }
   // Some Firefox extensions use window.nostrWallet
   const wallet = win.nostrWallet as WindowNostr | undefined;
-  if (wallet && typeof wallet.getPublicKey === "function" && typeof wallet.signEvent === "function") {
+  if (
+    wallet &&
+    typeof wallet.getPublicKey === "function" &&
+    typeof wallet.signEvent === "function"
+  ) {
     return wallet;
   }
   return null;

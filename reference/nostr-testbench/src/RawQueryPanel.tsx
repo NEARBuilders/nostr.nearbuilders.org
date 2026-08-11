@@ -1,5 +1,5 @@
-import { useState } from "react";
 import { NostrCore } from "near-nostr-sdk";
+import { useState } from "react";
 import { Log } from "./Log";
 
 type LogLine = { text: string; cls: string };
@@ -10,8 +10,7 @@ export function RawQueryPanel() {
   const [relays, setRelays] = useState("wss://relay.damus.io,wss://nos.lol");
   const [loading, setLoading] = useState(false);
 
-  const log = (text: string, cls = "") =>
-    setLogs((prev) => [...prev, { text, cls }]);
+  const log = (text: string, cls = "") => setLogs((prev) => [...prev, { text, cls }]);
 
   const query = async () => {
     setLogs([]);
@@ -43,8 +42,14 @@ export function RawQueryPanel() {
   return (
     <div className="panel">
       <h2>Raw Relay Query</h2>
-      <div className="row"><label>Filter (JSON)</label><textarea value={filter} onChange={(e) => setFilter(e.target.value)} /></div>
-      <div className="row"><label>Relays</label><input value={relays} onChange={(e) => setRelays(e.target.value)} /></div>
+      <div className="row">
+        <label>Filter (JSON)</label>
+        <textarea value={filter} onChange={(e) => setFilter(e.target.value)} />
+      </div>
+      <div className="row">
+        <label>Relays</label>
+        <input value={relays} onChange={(e) => setRelays(e.target.value)} />
+      </div>
       <button className="btn primary" disabled={loading} onClick={query}>
         {loading ? "Querying..." : "Query"}
       </button>

@@ -12,8 +12,10 @@ const secretKey = data as Uint8Array;
 function resolveChannel(target: string): string {
   const hex = createHash("sha256").update(target).digest("hex");
   return [
-    hex.slice(0, 8), hex.slice(8, 12), "4" + hex.slice(13, 15),
-    (parseInt(hex.slice(16, 18), 16) & 0x3f | 0x80).toString(16) + hex.slice(18, 20),
+    hex.slice(0, 8),
+    hex.slice(8, 12),
+    "4" + hex.slice(13, 15),
+    ((parseInt(hex.slice(16, 18), 16) & 0x3f) | 0x80).toString(16) + hex.slice(18, 20),
     hex.slice(20, 32),
   ].join("-");
 }
@@ -60,7 +62,11 @@ for (const m of msgs.events.slice(0, 5)) {
 }
 
 console.log("\n=== 4. Subscribe to 'general' ===");
-const sub = testBuzz.subscribe({ target: "general", targetType: "channel", clientName: "near-nostr-sdk" });
+const sub = testBuzz.subscribe({
+  target: "general",
+  targetType: "channel",
+  clientName: "near-nostr-sdk",
+});
 sub.on("event", (event) => {
   console.log(`  [LIVE] ${event.pubkey.slice(0, 12)}...: ${event.content.slice(0, 60)}`);
 });
@@ -68,7 +74,7 @@ sub.on("eose", () => {
   console.log("  ✓ EOSE — caught up");
 });
 // Let it run for 3s to catch any live messages
-await new Promise(r => setTimeout(r, 3000));
+await new Promise((r) => setTimeout(r, 3000));
 sub.close();
 
 console.log("\n=== 5. Publish a message to 'general' ===");
@@ -82,14 +88,16 @@ const result = await testBuzz.publish({
 });
 console.log(`  ✓ Published: ${result.event.id.slice(0, 20)}...`);
 console.log(`  ✓ Kind: ${result.event.kind}`);
-console.log(`  ✓ Relay status: ${[...result.statuses.entries()].map(([k, v]) => `${k}=${v}`).join(", ")}`);
+console.log(
+  `  ✓ Relay status: ${[...result.statuses.entries()].map(([k, v]) => `${k}=${v}`).join(", ")}`,
+);
 
 // Verify the #h tag is correct
-const hTag = result.event.tags.find(t => t[0] === "h");
+const hTag = result.event.tags.find((t) => t[0] === "h");
 console.log(`  ✓ #h tag: ${hTag?.[1]}`);
 
 // Verify near_target preserved
-const ntTag = result.event.tags.find(t => t[0] === "near_target");
+const ntTag = result.event.tags.find((t) => t[0] === "near_target");
 console.log(`  ✓ near_target: ${ntTag?.[1]}`);
 
 testBuzz.close();

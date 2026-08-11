@@ -1,11 +1,6 @@
 // ── NEAR <> Nostr target types ──
 
-export type NearNostrTargetType =
-  | "builder"
-  | "project"
-  | "scope"
-  | "submission"
-  | "page";
+export type NearNostrTargetType = "builder" | "project" | "scope" | "submission" | "page";
 
 export type NearNostrTarget = {
   type: NearNostrTargetType;

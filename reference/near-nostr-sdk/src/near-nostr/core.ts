@@ -1,24 +1,31 @@
 import { getPublicKey, verifyEvent } from "nostr-tools/pure";
+import type {
+  PublishAdapterOptions,
+  QueryAdapterOptions,
+  RelayAdapter,
+  SubscribeAdapterOptions,
+} from "../nostr-core/adapters/types.js";
 import { NostrCore } from "../nostr-core/core.js";
 import type { NostrEvent, NostrFilter } from "../nostr-core/types.js";
-import type { RelayAdapter, PublishAdapterOptions, QueryAdapterOptions, SubscribeAdapterOptions } from "../nostr-core/adapters/types.js";
 import type {
-  NearNostrConfig,
-  NearNostrTarget,
   NearNostrBinding,
-  NearNostrIdentity,
   NearNostrComment,
+  NearNostrConfig,
+  NearNostrIdentity,
+  NearNostrTarget,
 } from "./types.js";
 
-export type { NearNostrConfig, NearNostrTarget, NearNostrBinding, NearNostrIdentity, NearNostrComment } from "./types.js";
+export type {
+  NearNostrBinding,
+  NearNostrComment,
+  NearNostrConfig,
+  NearNostrIdentity,
+  NearNostrTarget,
+} from "./types.js";
 
 // ── Defaults ──
 
-const DEFAULT_RELAYS = [
-  "wss://relay.damus.io",
-  "wss://nos.lol",
-  "wss://relay.primal.net",
-];
+const DEFAULT_RELAYS = ["wss://relay.damus.io", "wss://nos.lol", "wss://relay.primal.net"];
 
 const DEFAULT_KV_API = "https://kv.main.fastnear.com";
 
@@ -26,7 +33,9 @@ const DEFAULT_KV_API = "https://kv.main.fastnear.com";
 
 export class NearNostr {
   readonly core: NostrCore;
-  readonly config: Required<Pick<NearNostrConfig, "relays" | "kvApiUrl" | "nearRpc" | "bindingContract" | "clientName">>;
+  readonly config: Required<
+    Pick<NearNostrConfig, "relays" | "kvApiUrl" | "nearRpc" | "bindingContract" | "clientName">
+  >;
   readonly adapters: Map<string, RelayAdapter>;
 
   constructor(config?: NearNostrConfig) {
@@ -122,10 +131,12 @@ export class NearNostr {
    * Build a binding event template for a signer to sign.
    * Pass to `signer.signEvent(template)` — works with extension, nsec, or NIP-46.
    */
-  buildBindingEventTemplate(opts: {
-    nostrPubkey: string;
-    challenge: string;
-  }): { kind: number; created_at: number; tags: string[][]; content: string } {
+  buildBindingEventTemplate(opts: { nostrPubkey: string; challenge: string }): {
+    kind: number;
+    created_at: number;
+    tags: string[][];
+    content: string;
+  } {
     return {
       kind: 27235, // ephemeral binding event (won't be relayed)
       created_at: Math.floor(Date.now() / 1000),
@@ -232,9 +243,8 @@ export class NearNostr {
     const targetKey = `${opts.target.type}:${opts.target.id}`;
 
     // Fetch more if we'll be filtering out unbound
-    const fetchLimit = (opts.requireBound || opts.requireVerified)
-      ? (opts.limit ?? 50) * 3
-      : opts.limit;
+    const fetchLimit =
+      opts.requireBound || opts.requireVerified ? (opts.limit ?? 50) * 3 : opts.limit;
 
     const { events } = await adapter.query({
       target: targetKey,
@@ -248,9 +258,7 @@ export class NearNostr {
 
     let comments: NearNostrComment[] = [];
     for (const event of events) {
-      const parentTag = event.tags.find(
-        (t) => t[0] === "e" && t[3] === "reply",
-      );
+      const parentTag = event.tags.find((t) => t[0] === "e" && t[3] === "reply");
       const nearAccount = event.tags.find((t) => t[0] === "near_account")?.[1];
 
       // requireBound: skip comments without near_account tag
@@ -269,16 +277,14 @@ export class NearNostr {
 
     // requireVerified: batch-check KV bindings
     if (opts.requireVerified) {
-      const accounts = [...new Set(
-        comments.filter((c) => c.nearAccountId).map((c) => c.nearAccountId!),
-      )];
+      const accounts = [
+        ...new Set(comments.filter((c) => c.nearAccountId).map((c) => c.nearAccountId!)),
+      ];
       const BATCH = 5;
       const verified = new Set<string>();
       for (let i = 0; i < accounts.length; i += BATCH) {
         const batch = accounts.slice(i, i + BATCH);
-        const results = await Promise.allSettled(
-          batch.map((acc) => this.#fetchBinding(acc)),
-        );
+        const results = await Promise.allSettled(batch.map((acc) => this.#fetchBinding(acc)));
         results.forEach((r, idx) => {
           if (r.status === "fulfilled" && r.value) {
             verified.add(batch[idx]);
@@ -307,9 +313,7 @@ export class NearNostr {
     const BATCH = 5;
     for (let i = 0; i < uniquePubkeys.length; i += BATCH) {
       const batch = uniquePubkeys.slice(i, i + BATCH);
-      const results = await Promise.allSettled(
-        batch.map((pk) => this.#fetchProfile(pk)),
-      );
+      const results = await Promise.allSettled(batch.map((pk) => this.#fetchProfile(pk)));
       results.forEach((r, idx) => {
         if (r.status === "fulfilled" && r.value) {
           profileMap.set(batch[idx], r.value);
@@ -353,10 +357,7 @@ export class NearNostr {
       const data = await res.json();
       const entry = data?.entries?.[0];
       if (!entry?.value) return null;
-      const parsed =
-        typeof entry.value === "string"
-          ? JSON.parse(entry.value)
-          : entry.value;
+      const parsed = typeof entry.value === "string" ? JSON.parse(entry.value) : entry.value;
       return {
         nearAccountId,
         nostrPubkey: parsed.npub ?? parsed.value?.npub,

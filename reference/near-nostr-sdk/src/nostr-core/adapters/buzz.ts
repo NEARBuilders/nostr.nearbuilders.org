@@ -1,13 +1,13 @@
-import WebSocket from "ws";
 import { finalizeEvent, getPublicKey } from "nostr-tools/pure";
-import type { NostrEvent, NostrFilter } from "../types.js";
+import WebSocket from "ws";
 import type { NostrSubscription } from "../core.js";
+import type { NostrEvent, NostrFilter } from "../types.js";
 import type {
-  RelayAdapter,
   PublishAdapterOptions,
-  QueryAdapterOptions,
-  SubscribeAdapterOptions,
   PublishResult,
+  QueryAdapterOptions,
+  RelayAdapter,
+  SubscribeAdapterOptions,
 } from "./types.js";
 
 // ── BuzzAdapter (NIP-29) ──
@@ -92,10 +92,12 @@ export class BuzzAdapter implements RelayAdapter {
         this.#states.set(url, "disconnected");
       });
 
-      this.#waitAuth(url).then(() => {
-        clearTimeout(timer);
-        resolve(url);
-      }).catch(reject);
+      this.#waitAuth(url)
+        .then(() => {
+          clearTimeout(timer);
+          resolve(url);
+        })
+        .catch(reject);
     });
   }
 
@@ -111,10 +113,19 @@ export class BuzzAdapter implements RelayAdapter {
     return new Promise((resolve, reject) => {
       const iv = setInterval(() => {
         const s = this.#states.get(url);
-        if (s === "connected") { clearInterval(iv); resolve(); }
-        if (s === "failed") { clearInterval(iv); reject(new Error(`Auth failed: ${url}`)); }
+        if (s === "connected") {
+          clearInterval(iv);
+          resolve();
+        }
+        if (s === "failed") {
+          clearInterval(iv);
+          reject(new Error(`Auth failed: ${url}`));
+        }
       }, 50);
-      setTimeout(() => { clearInterval(iv); reject(new Error("Auth timeout")); }, this.connectTimeoutMs);
+      setTimeout(() => {
+        clearInterval(iv);
+        reject(new Error("Auth timeout"));
+      }, this.connectTimeoutMs);
     });
   }
 
@@ -122,14 +133,26 @@ export class BuzzAdapter implements RelayAdapter {
 
   #handle(relay: string, ws: WebSocket, raw: string): void {
     let msg: unknown[];
-    try { msg = JSON.parse(raw); } catch { return; }
+    try {
+      msg = JSON.parse(raw);
+    } catch {
+      return;
+    }
     const t = msg[0] as string;
 
     // AUTH challenge → sign + respond
     if (t === "AUTH") {
       const challenge = msg[1] as string;
       const evt = finalizeEvent(
-        { kind: 22242, created_at: Math.floor(Date.now() / 1000), tags: [["relay", relay], ["challenge", challenge]], content: "" },
+        {
+          kind: 22242,
+          created_at: Math.floor(Date.now() / 1000),
+          tags: [
+            ["relay", relay],
+            ["challenge", challenge],
+          ],
+          content: "",
+        },
         this.secretKey,
       );
       ws.send(JSON.stringify(["AUTH", evt]));
@@ -156,7 +179,10 @@ export class BuzzAdapter implements RelayAdapter {
     if (t === "EOSE") {
       const subId = msg[1] as string;
       const q = this.#queries.get(subId);
-      if (q) { q.eose = true; q.resolve(); }
+      if (q) {
+        q.eose = true;
+        q.resolve();
+      }
       return;
     }
     // NOTICE, CLOSED — silently ignore
@@ -174,10 +200,10 @@ export class BuzzAdapter implements RelayAdapter {
     const relays = opts.relays ?? this.relays;
     const channelId = this.channelFor(opts.target);
     const tags: string[][] = [
-      ["h", channelId],                             // NIP-29 channel ref
+      ["h", channelId], // NIP-29 channel ref
       // Standard tags (relay-filterable)
-      ["t", opts.targetType],                       // topic
-      ["p", opts.pubkey],                           // pubkey ref: author
+      ["t", opts.targetType], // topic
+      ["p", opts.pubkey], // pubkey ref: author
       ["client", opts.clientName],
     ];
     if (opts.nearAccountId) {
@@ -187,7 +213,7 @@ export class BuzzAdapter implements RelayAdapter {
       tags.push(["e", opts.parentEventId, "", "reply"]); // event ref: parent thread
     }
     if (opts.targetUrl) {
-      tags.push(["r", opts.targetUrl]);                   // URL ref
+      tags.push(["r", opts.targetUrl]); // URL ref
     }
     // App-specific tags
     tags.push(["near_target", opts.target]);
@@ -241,10 +267,16 @@ export class BuzzAdapter implements RelayAdapter {
       relays.map(async (r: string) => {
         try {
           await this.#ensureConnected(r);
-        } catch { return; }
+        } catch {
+          return;
+        }
 
         const subId = `q-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-        const filter: Record<string, unknown> = { kinds: [9], "#h": [channelId], limit: opts.limit ?? 100 };
+        const filter: Record<string, unknown> = {
+          kinds: [9],
+          "#h": [channelId],
+          limit: opts.limit ?? 100,
+        };
         if (opts.until) filter.until = opts.until;
         if (opts.since) filter.since = opts.since;
 
@@ -253,11 +285,21 @@ export class BuzzAdapter implements RelayAdapter {
           this.#queries.set(subId, q);
 
           const timer = setTimeout(() => {
-            if (!q.eose) { q.eose = true; allEvents.push(...q.events); this.#queries.delete(subId); resolve(); }
+            if (!q.eose) {
+              q.eose = true;
+              allEvents.push(...q.events);
+              this.#queries.delete(subId);
+              resolve();
+            }
           }, this.queryTimeoutMs);
 
           const origResolve = q.resolve;
-          q.resolve = () => { clearTimeout(timer); allEvents.push(...q.events); this.#queries.delete(subId); origResolve(); };
+          q.resolve = () => {
+            clearTimeout(timer);
+            allEvents.push(...q.events);
+            this.#queries.delete(subId);
+            origResolve();
+          };
 
           this.#send(r, ["REQ", subId, filter]);
         });
@@ -286,7 +328,11 @@ export class BuzzAdapter implements RelayAdapter {
 
           ws.on("message", (raw: Buffer) => {
             let msg: unknown[];
-            try { msg = JSON.parse(raw.toString()); } catch { return; }
+            try {
+              msg = JSON.parse(raw.toString());
+            } catch {
+              return;
+            }
             if (msg[0] === "EVENT" && msg[1] === subId) {
               if (!closed && eventCb) eventCb(msg[2] as unknown as NostrEvent);
               return;
@@ -300,7 +346,9 @@ export class BuzzAdapter implements RelayAdapter {
           });
 
           this.#send(r, ["REQ", subId, { kinds: [9], "#h": [channelId], limit: 100 }]);
-        } catch { /* skip */ }
+        } catch {
+          /* skip */
+        }
       }
     };
 
@@ -315,7 +363,11 @@ export class BuzzAdapter implements RelayAdapter {
       close: () => {
         closed = true;
         for (let i = 0; i < wsList.length; i++) {
-          try { this.#send(relays[i], ["CLOSE", subId]); } catch { /* ignore */ }
+          try {
+            this.#send(relays[i], ["CLOSE", subId]);
+          } catch {
+            /* ignore */
+          }
         }
       },
     };
@@ -331,7 +383,9 @@ export class BuzzAdapter implements RelayAdapter {
       relayList.map(async (r: string) => {
         try {
           await this.#ensureConnected(r);
-        } catch { return; }
+        } catch {
+          return;
+        }
 
         const subId = `ch-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
         return new Promise<void>((resolve) => {
@@ -339,11 +393,21 @@ export class BuzzAdapter implements RelayAdapter {
           this.#queries.set(subId, q);
 
           const timer = setTimeout(() => {
-            if (!q.eose) { q.eose = true; allEvents.push(...q.events); this.#queries.delete(subId); resolve(); }
+            if (!q.eose) {
+              q.eose = true;
+              allEvents.push(...q.events);
+              this.#queries.delete(subId);
+              resolve();
+            }
           }, 5_000);
 
           const origResolve = q.resolve;
-          q.resolve = () => { clearTimeout(timer); allEvents.push(...q.events); this.#queries.delete(subId); origResolve(); };
+          q.resolve = () => {
+            clearTimeout(timer);
+            allEvents.push(...q.events);
+            this.#queries.delete(subId);
+            origResolve();
+          };
 
           this.#send(r, ["REQ", subId, { kinds: [9007], limit: 100 }]);
         });
@@ -365,7 +429,11 @@ export class BuzzAdapter implements RelayAdapter {
       {
         kind: 9007,
         created_at: Math.floor(Date.now() / 1000),
-        tags: [["d", channelId], ["name", opts.name], ["visibility", opts.visibility ?? "open"]],
+        tags: [
+          ["d", channelId],
+          ["name", opts.name],
+          ["visibility", opts.visibility ?? "open"],
+        ],
         content: "",
       },
       this.secretKey,
@@ -373,7 +441,12 @@ export class BuzzAdapter implements RelayAdapter {
 
     await Promise.allSettled(
       relays.map(async (r: string) => {
-        try { await this.#ensureConnected(r); this.#send(r, ["EVENT", event]); } catch { /* skip */ }
+        try {
+          await this.#ensureConnected(r);
+          this.#send(r, ["EVENT", event]);
+        } catch {
+          /* skip */
+        }
       }),
     );
 
@@ -384,20 +457,34 @@ export class BuzzAdapter implements RelayAdapter {
     const relays = opts.relays ?? this.relays;
     const channelId = this.channelFor(opts.target);
     const event = finalizeEvent(
-      { kind: 9021, created_at: Math.floor(Date.now() / 1000), tags: [["h", channelId]], content: "" },
+      {
+        kind: 9021,
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [["h", channelId]],
+        content: "",
+      },
       this.secretKey,
     );
 
     await Promise.allSettled(
       relays.map(async (r: string) => {
-        try { await this.#ensureConnected(r); this.#send(r, ["EVENT", event]); } catch { /* skip */ }
+        try {
+          await this.#ensureConnected(r);
+          this.#send(r, ["EVENT", event]);
+        } catch {
+          /* skip */
+        }
       }),
     );
   }
 
   close(): void {
     for (const [url, ws] of this.#conns) {
-      try { ws.close(); } catch { /* ignore */ }
+      try {
+        ws.close();
+      } catch {
+        /* ignore */
+      }
       this.#states.set(url, "disconnected");
     }
     this.#conns.clear();

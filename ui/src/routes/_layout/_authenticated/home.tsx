@@ -16,7 +16,6 @@ export const Route = createFileRoute("/_layout/_authenticated/home")({
 
 function Home() {
   const auth = useAuthClient();
-  const { tenant } = Route.useRouteContext();
   const { data: session } = useQuery<SessionData | null>(sessionQueryOptions(auth, undefined));
   const { data: passkeys = [] } = useQuery({
     queryKey: ["passkeys"],
@@ -46,9 +45,6 @@ function Home() {
       isAdmin: user.role === "admin",
     };
   }, [user, nearAccountId, passkeys.length]);
-
-  const activeOrgId = session?.session?.activeOrganizationId ?? null;
-  const isTenantMember = !!tenant && !!activeOrgId && activeOrgId === tenant.orgId;
 
   return (
     <PageContainer variant="wide">
@@ -84,7 +80,6 @@ function Home() {
                 <Chip>workspace</Chip>
                 {profile.isAnonymous && <Chip>anonymous</Chip>}
                 {profile.isAdmin && <Chip accent>admin</Chip>}
-                {isTenantMember && <Chip accent>tenant member</Chip>}
               </div>
               <h2 className="text-foreground text-xl font-semibold">
                 {user.name || user.email || user.id.slice(0, 8)}
@@ -125,32 +120,6 @@ function Home() {
               )}
             </Card>
           </>
-        )}
-
-        {tenant && (
-          <Card className="p-6 space-y-4">
-            <div className="text-muted-foreground text-[11px] font-bold uppercase tracking-wider">
-              Tenant
-            </div>
-            <div className="flex flex-col gap-2">
-              <InfoRow label="name" value={tenant.name} />
-              <InfoRow label="subdomain" value={tenant.subdomain} mono />
-              <InfoRow label="account" value={tenant.accountId} mono />
-              <InfoRow
-                label="created"
-                value={tenant.createdAt ? new Date(tenant.createdAt).toLocaleDateString() : "—"}
-              />
-            </div>
-            <div className="flex gap-2 pt-1">
-              <Link
-                to="/admin"
-                preload="intent"
-                className="h-9 px-3 inline-flex items-center gap-1.5 text-xs font-medium border-2 border-outset border-border-strong bg-card text-foreground shadow-sm hover:shadow-md active:border-inset active:shadow-none transition-all duration-200 ease-out rounded-[10px]"
-              >
-                manage tenant
-              </Link>
-            </div>
-          </Card>
         )}
       </div>
     </PageContainer>
