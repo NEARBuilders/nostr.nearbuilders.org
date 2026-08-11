@@ -1,124 +1,71 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { Building2, Settings, Shield, Users } from "lucide-react";
-import { getAccount } from "@/app";
-import { Button, Card } from "@/components";
-import { EmptyState } from "@/components/empty-state";
-import { PageContainer } from "@/components/layout/page-container";
+import { createFileRoute, Link, Outlet, redirect, useRouterState } from "@tanstack/react-router";
+import { LayoutDashboard, Shield, Terminal } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_layout/_authenticated/admin")({
+  beforeLoad: async ({ context }) => {
+    const auth = context.auth;
+    if (!auth?.user || auth.user.role !== "admin") {
+      throw redirect({ to: "/home" });
+    }
+  },
   head: () => ({
     meta: [{ title: "Admin | app" }],
   }),
-  component: AdminPage,
+  component: AdminLayout,
 });
 
-function AdminPage() {
-  const { session } = Route.useRouteContext();
-  const account = getAccount();
-  const user = session?.user ?? null;
-  const isAdmin = user?.role === "admin";
+function AdminLayout() {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
 
-  if (!isAdmin) {
-    return (
-      <EmptyState
-        icon={Shield}
-        title="Not authorized"
-        description="You need an admin account to access this dashboard."
-        action={
-          <Button asChild variant="outline">
-            <Link to="/home">back to workspace</Link>
-          </Button>
-        }
-      />
-    );
-  }
+  const navItems = [
+    {
+      label: "dashboard",
+      to: "/admin",
+      icon: LayoutDashboard,
+      match: (p: string) => p === "/admin",
+    },
+    {
+      label: "system",
+      to: "/admin/system",
+      icon: Terminal,
+      match: (p: string) => p.startsWith("/admin/system"),
+    },
+  ];
 
   return (
-    <PageContainer variant="wide">
-      <div className="space-y-8">
-        <header className="space-y-3">
-          <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-            <Shield className="h-3 w-3" />
-            Admin
-          </div>
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div className="space-y-1">
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
-                Dashboard
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                Signed in as <span className="font-mono">{account}</span>
-              </p>
-            </div>
-          </div>
-        </header>
+    <div className="min-h-full w-full">
+      <div className="space-y-6">
+        <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+          <Shield className="h-3 w-3" />
+          Admin
+        </div>
 
-        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard label="Account" value={account} mono />
-          <StatCard label="Name" value={user?.name || user?.email || "—"} />
-          <StatCard label="Role" value={user?.role ?? "—"} />
-          <StatCard
-            label="Created"
-            value={user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : "—"}
-          />
-        </section>
+        <nav className="flex items-center gap-1 border-b border-border pb-0">
+          {navItems.map((item) => {
+            const active = item.match(pathname);
+            return (
+              <Link
+                key={item.label}
+                to={item.to}
+                preload="intent"
+                className={cn(
+                  "flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-t-[10px] border border-b-0 transition-colors",
+                  active
+                    ? "bg-card text-foreground border-border"
+                    : "text-muted-foreground hover:text-foreground border-transparent",
+                )}
+              >
+                <item.icon className="h-3.5 w-3.5" />
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
 
-        <section className="space-y-3">
-          <h2 className="text-lg font-semibold text-foreground">Manage</h2>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <Card className="p-6 space-y-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-foreground text-background">
-                <Building2 className="h-4 w-4" />
-              </div>
-              <h3 className="text-base font-semibold text-foreground">Organizations</h3>
-              <p className="text-sm text-muted-foreground">
-                Manage organizations, members, roles, and invitations.
-              </p>
-              <Button asChild variant="outline" size="sm">
-                <Link to="/organizations">
-                  <Users className="h-3.5 w-3.5" />
-                  open organizations
-                </Link>
-              </Button>
-            </Card>
-
-            <Card className="p-6 space-y-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-foreground text-background">
-                <Settings className="h-4 w-4" />
-              </div>
-              <h3 className="text-base font-semibold text-foreground">Settings</h3>
-              <p className="text-sm text-muted-foreground">
-                Update your profile, auth methods, and security preferences.
-              </p>
-              <Button asChild variant="outline" size="sm">
-                <Link to="/settings">open settings</Link>
-              </Button>
-            </Card>
-          </div>
-        </section>
-      </div>
-    </PageContainer>
-  );
-}
-
-function StatCard({
-  label,
-  value,
-  mono,
-}: {
-  label: string;
-  value: React.ReactNode;
-  mono?: boolean;
-}) {
-  return (
-    <div className="border-2 border-outset border-border-strong bg-card p-4 rounded-[12px] shadow-sm space-y-1">
-      <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-        {label}
-      </div>
-      <div
-        className={`text-sm text-foreground break-all ${mono ? "font-mono text-xs" : "font-semibold"}`}
-      >
-        {value}
+        <div>
+          <Outlet />
+        </div>
       </div>
     </div>
   );

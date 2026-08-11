@@ -3,7 +3,11 @@ import { useAuthClient } from "@/app";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { sessionQueryOptions } from "@/lib/auth";
 
-export function NetworkToggle() {
+export function NetworkToggle({
+  className = "w-full flex items-center justify-center",
+}: {
+  className?: string;
+}) {
   const auth = useAuthClient();
   const { data: session } = useQuery(sessionQueryOptions(auth));
   const supportedNetworks = auth.near.getSupportedNetworks();
@@ -13,7 +17,7 @@ export function NetworkToggle() {
   if (supportedNetworks.length <= 1) return null;
 
   return (
-    <div className="border-l-2 border-border fixed top-0 right-0 z-50">
+    <div className={className}>
       <Tabs
         value={currentNetwork}
         onValueChange={(network) => {

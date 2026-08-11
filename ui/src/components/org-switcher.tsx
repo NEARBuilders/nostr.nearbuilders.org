@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Building2, Check, Plus } from "lucide-react";
 import type { Organization } from "@/app";
@@ -20,14 +21,19 @@ interface OrgSwitcherProps {
 
 export function OrgSwitcher({ organizations, activeOrgId, onSwitch }: OrgSwitcherProps) {
   const auth = useAuthClient();
+  const queryClient = useQueryClient();
   const activeOrg = organizations.find((o) => o.id === activeOrgId);
 
   const handleSwitch = async (orgId: string) => {
     if (orgId === activeOrgId) return;
     const { error } = await auth.organization.setActive({ organizationId: orgId });
-    if (!error) {
-      onSwitch?.(orgId);
+    if (error) {
+      console.error("Failed to switch organization:", error);
+      return;
     }
+    await queryClient.invalidateQueries({ queryKey: ["session"] });
+    await queryClient.invalidateQueries({ queryKey: ["organizations"] });
+    onSwitch?.(orgId);
   };
 
   return (
@@ -51,7 +57,10 @@ export function OrgSwitcher({ organizations, activeOrgId, onSwitch }: OrgSwitche
           <DropdownMenuItem
             key={org.id}
             className="flex items-center justify-between cursor-pointer"
-            onClick={() => handleSwitch(org.id)}
+            onSelect={(event) => {
+              event.preventDefault();
+              void handleSwitch(org.id);
+            }}
           >
             <span className="truncate min-w-0 flex-1">{org.name}</span>
             {org.id === activeOrgId && <Check className="h-3.5 w-3.5 text-muted-foreground" />}

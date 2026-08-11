@@ -7,6 +7,7 @@ export {
 export { BrandElement } from "./brand-element";
 export { ConfirmDialog } from "./confirm-dialog";
 export { EmptyState } from "./empty-state";
+export { NearBranding } from "./near-branding";
 export { PageContainer } from "./layout/page-container";
 export { OrgSwitcher } from "./org-switcher";
 export { Badge } from "./ui/badge";

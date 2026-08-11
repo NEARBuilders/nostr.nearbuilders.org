@@ -3,7 +3,7 @@ import { ArrowRight, Building2, FileCode2, Lock, Sparkles } from "lucide-react";
 import { getAccount, getActiveRuntime, getAppName, getRepository } from "@/app";
 import { Button, Card, PageContainer } from "@/components";
 
-export const Route = createFileRoute("/_layout/")({
+export const Route = createFileRoute("/_layout/_public/")({
   loader: async ({ context }) => ({
     runtimeConfig: context.runtimeConfig,
   }),

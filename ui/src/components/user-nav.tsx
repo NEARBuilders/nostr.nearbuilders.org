@@ -12,6 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { NetworkToggle } from "@/components/ui/network-toggle";
 
 export function UserNav() {
   const auth = useAuthClient();
@@ -57,18 +58,20 @@ export function UserNav() {
 
   if (!user) {
     return (
-      <Link
-        to="/login"
-        className="h-9 px-4 inline-flex items-center justify-center text-sm font-medium border-2 border-outset border-border-strong bg-card text-foreground shadow-sm hover:shadow-md hover:bg-muted active:border-inset active:shadow-none transition-all duration-200 ease-out cursor-pointer"
-      >
-        connect
-      </Link>
+      <div className="flex items-center gap-2">
+        <NetworkToggle className="flex items-center justify-center" />
+        <Link
+          to="/login"
+          className="h-9 px-4 inline-flex items-center justify-center text-sm font-medium border-2 border-outset border-border-strong bg-card text-foreground shadow-sm hover:shadow-md hover:bg-muted active:border-inset active:shadow-none transition-all duration-200 ease-out cursor-pointer"
+        >
+          connect
+        </Link>
+      </div>
     );
   }
 
   const handleOrgSwitch = async () => {
     await queryClient.invalidateQueries({ queryKey: ["session"] });
-    await queryClient.invalidateQueries({ queryKey: ["organizations"] });
   };
 
   return (
