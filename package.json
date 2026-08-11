@@ -1,0 +1,26 @@
+{
+  "name": "nostr-testbench",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "deploy": "tsc -b && vite build && wrangler pages deploy dist --project-name=nostr-testbench"
+  },
+  "dependencies": {
+    "@hot-labs/near-connect": "^0.11.4",
+    "@noble/hashes": "^2.2.0",
+    "near-nostr-sdk": "file:../near-nostr-sdk",
+    "nostr-tools": "^2.24.1",
+    "react": "^19",
+    "react-dom": "^19"
+  },
+  "devDependencies": {
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^4",
+    "typescript": "^5.7",
+    "vite": "^6",
+    "wrangler": "^3"
+  }
+}
