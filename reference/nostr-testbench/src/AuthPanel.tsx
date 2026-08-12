@@ -95,7 +95,7 @@ export function AuthPanel({ onReady }: { onReady: (state: SignerState) => void }
         onReady(updated);
       }
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [state, onReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleExtensionLogin = async () => {
     setLoading(true);
@@ -168,7 +168,7 @@ export function AuthPanel({ onReady }: { onReady: (state: SignerState) => void }
   };
 
   // Build a unified sign function from whatever mode we're in
-  const signEvent = async (template: {
+  const _signEvent = async (template: {
     kind: number;
     content: string;
     tags: string[][];
@@ -194,7 +194,7 @@ export function AuthPanel({ onReady }: { onReady: (state: SignerState) => void }
               {state.pubkey.slice(0, 20)}...
             </span>
           </div>
-          <button className="btn danger" onClick={disconnect}>
+          <button type="button" className="btn danger" onClick={disconnect}>
             Disconnect
           </button>
         </>
@@ -202,16 +202,18 @@ export function AuthPanel({ onReady }: { onReady: (state: SignerState) => void }
         <>
           <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
             <button
+              type="button"
               className="btn primary"
               disabled={!nip07Available || loading}
               onClick={handleExtensionLogin}
             >
               Extension
             </button>
-            <button className="btn" disabled={loading} onClick={handleGenerate}>
+            <button type="button" className="btn" disabled={loading} onClick={handleGenerate}>
               Generate
             </button>
             <button
+              type="button"
               className="btn"
               disabled={!nsecInput.trim() || loading}
               onClick={handleNsecLogin}

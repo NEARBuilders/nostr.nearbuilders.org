@@ -1,12 +1,6 @@
 import { SimplePool } from "nostr-tools/pool";
-import { finalizeEvent, generateSecretKey, getPublicKey } from "nostr-tools/pure";
-import type {
-  ConnectionResult,
-  NostrEvent,
-  NostrFilter,
-  RelayMessage,
-  UnsignedNostrEvent,
-} from "./types.js";
+import { generateSecretKey, getPublicKey } from "nostr-tools/pure";
+import type { NostrEvent, NostrFilter } from "./types.js";
 
 export type {
   ConnectionResult,

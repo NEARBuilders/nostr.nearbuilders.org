@@ -1,12 +1,12 @@
 // E2E: BuzzAdapter against live NearBuilders Buzz relay
-import { createHash } from "crypto";
+import { createHash } from "node:crypto";
 import * as nip19 from "nostr-tools/nip19";
 import { BuzzAdapter } from "../src/nostr-core/adapters/buzz.js";
 
 const NSEC = "nsec1s7x3p6h8he7c2gf3fhrypagdd2zeaslgz8dcmsec7k90us6vncmq2lh7ma";
 const RELAY = "wss://nearbuilders.communities.buzz.xyz";
 
-const { type, data } = nip19.decode(NSEC);
+const { data } = nip19.decode(NSEC);
 const secretKey = data as Uint8Array;
 
 function resolveChannel(target: string): string {
@@ -14,7 +14,7 @@ function resolveChannel(target: string): string {
   return [
     hex.slice(0, 8),
     hex.slice(8, 12),
-    "4" + hex.slice(13, 15),
+    `4${hex.slice(13, 15)}`,
     ((parseInt(hex.slice(16, 18), 16) & 0x3f) | 0x80).toString(16) + hex.slice(18, 20),
     hex.slice(20, 32),
   ].join("-");
@@ -32,7 +32,7 @@ console.log(`✓ Connected + authenticated to ${url}`);
 console.log(`  Pubkey: ${buzz.pubkey.slice(0, 20)}...`);
 
 console.log("\n=== 2. Query channels (kind 39000) ===");
-const channels = await buzz.query({ target: "any", targetType: "channel", clientName: "probe" });
+const _channels = await buzz.query({ target: "any", targetType: "channel", clientName: "probe" });
 // Actually we need a raw query for kind 39000. Let's use the probe for now.
 console.log(`  (Direct kind 39000 query not in adapter scope — use raw WS for discovery)`);
 

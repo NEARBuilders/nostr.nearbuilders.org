@@ -1,4 +1,4 @@
-import { createHash } from "crypto";
+import { createHash } from "node:crypto";
 
 // E2E: Standard + Buzz adapter verification
 import { BuzzAdapter, NearNostr, NostrCore, StandardAdapter } from "../src/index.js";
@@ -55,7 +55,7 @@ const buzz = new BuzzAdapter({
     return [
       hex.slice(0, 8),
       hex.slice(8, 12),
-      "4" + hex.slice(13, 15),
+      `4${hex.slice(13, 15)}`,
       ((parseInt(hex.slice(16, 18), 16) & 0x3f) | 0x80).toString(16) + hex.slice(18, 20),
       hex.slice(20, 32),
     ].join("-");

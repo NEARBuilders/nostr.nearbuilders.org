@@ -30,7 +30,7 @@ export function SignPanel({ signerState }: { signerState: SignerState }) {
         tags: parsedTags,
       };
 
-      let signed;
+      let signed: { id: string; pubkey: string; sig: string; [key: string]: unknown };
       if (signerState.signer) {
         signed = await signerState.signer.signEvent(template);
       } else if (signerState.secretKey) {
@@ -55,22 +55,24 @@ export function SignPanel({ signerState }: { signerState: SignerState }) {
     <div className="panel">
       <h2>Sign Event</h2>
       <div className="row">
-        <label>Kind</label>
+        <label htmlFor="kind">Kind</label>
         <input
+          id="kind"
           type="number"
           value={kind}
-          onChange={(e) => setKind(parseInt(e.target.value) || 1)}
+          onChange={(e) => setKind(parseInt(e.target.value, 10) || 1)}
         />
       </div>
       <div className="row">
-        <label>Content</label>
-        <textarea value={content} onChange={(e) => setContent(e.target.value)} />
+        <label htmlFor="sign-content">Content</label>
+        <textarea id="sign-content" value={content} onChange={(e) => setContent(e.target.value)} />
       </div>
       <div className="row">
-        <label>Tags (JSON)</label>
-        <input value={tags} onChange={(e) => setTags(e.target.value)} />
+        <label htmlFor="sign-tags">Tags (JSON)</label>
+        <input id="sign-tags" value={tags} onChange={(e) => setTags(e.target.value)} />
       </div>
       <button
+        type="button"
         className="btn primary"
         disabled={signerState.mode === "none" || loading}
         onClick={sign}

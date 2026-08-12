@@ -1,7 +1,7 @@
 import { NearConnector } from "@hot-labs/near-connect";
 import { NearNostr } from "near-nostr-sdk";
 import { finalizeEvent } from "nostr-tools/pure";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { SignerState } from "./AuthPanel";
 import { Log, type LogLine } from "./Log";
 
@@ -21,7 +21,10 @@ export function LinkPanel({ signerState }: { signerState: SignerState }) {
 
   const connectorRef = useRef<NearConnector | null>(null);
 
-  const log = (text: string, cls = "") => setLogs((prev) => [...prev, { text, cls }]);
+  const log = useCallback(
+    (text: string, cls = "") => setLogs((prev) => [...prev, { text, cls }]),
+    [],
+  );
 
   const nn = new NearNostr({ relays: DEFAULT_RELAYS });
 
@@ -54,7 +57,7 @@ export function LinkPanel({ signerState }: { signerState: SignerState }) {
         }
       })
       .catch(() => {});
-  }, []);
+  }, [log]);
 
   // Step 1: Generate challenge
   const generateChallenge = () => {
@@ -79,7 +82,7 @@ export function LinkPanel({ signerState }: { signerState: SignerState }) {
       });
       log(`Signing kind ${template.kind} binding event...`, "warn");
 
-      let signed;
+      let signed: { id: string; [key: string]: unknown };
       if (signerState.signer) {
         signed = await signerState.signer.signEvent(template);
       } else if (signerState.secretKey) {
@@ -122,7 +125,9 @@ export function LinkPanel({ signerState }: { signerState: SignerState }) {
       const connector = connectorRef.current;
 
       // Connect if needed
-      let wallet;
+      let wallet:
+        | Awaited<ReturnType<typeof connector.wallet>>
+        | Awaited<ReturnType<typeof connector.connect>>;
       try {
         wallet = await connector.wallet();
         const accts = await wallet.getAccounts();
@@ -206,8 +211,9 @@ export function LinkPanel({ signerState }: { signerState: SignerState }) {
     <div className="panel">
       <h2>Link NEAR ↔ Nostr</h2>
       <div className="row">
-        <label>NEAR Account</label>
+        <label htmlFor="near-account">NEAR Account</label>
         <input
+          id="near-account"
           value={account}
           onChange={(e) => setAccount(e.target.value)}
           placeholder="jemartel.near"
@@ -215,12 +221,13 @@ export function LinkPanel({ signerState }: { signerState: SignerState }) {
       </div>
 
       {isBound ? (
-        <button className="btn" onClick={checkBinding} disabled={loading}>
+        <button type="button" className="btn" onClick={checkBinding} disabled={loading}>
           {loading ? "Checking..." : "Re-check"}
         </button>
       ) : (
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           <button
+            type="button"
             className="btn primary"
             disabled={!isReady || loading}
             onClick={generateChallenge}
@@ -228,6 +235,7 @@ export function LinkPanel({ signerState }: { signerState: SignerState }) {
             1. Challenge
           </button>
           <button
+            type="button"
             className="btn"
             disabled={linkStep !== "challenge" || loading}
             onClick={signChallenge}
@@ -235,13 +243,19 @@ export function LinkPanel({ signerState }: { signerState: SignerState }) {
             2. Sign
           </button>
           <button
+            type="button"
             className="btn primary"
             disabled={linkStep !== "signed" || loading}
             onClick={connectAndSend}
           >
             3. Wallet
           </button>
-          <button className="btn" disabled={!account || loading} onClick={checkBinding}>
+          <button
+            type="button"
+            className="btn"
+            disabled={!account || loading}
+            onClick={checkBinding}
+          >
             Check
           </button>
         </div>

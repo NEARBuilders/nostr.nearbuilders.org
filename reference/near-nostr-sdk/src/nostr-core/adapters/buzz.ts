@@ -1,7 +1,7 @@
 import { finalizeEvent, getPublicKey } from "nostr-tools/pure";
 import WebSocket from "ws";
 import type { NostrSubscription } from "../core.js";
-import type { NostrEvent, NostrFilter } from "../types.js";
+import type { NostrEvent } from "../types.js";
 import type {
   PublishAdapterOptions,
   PublishResult,

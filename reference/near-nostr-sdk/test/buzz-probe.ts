@@ -91,7 +91,7 @@ await new Promise<void>((resolve) => {
       } else if (event.kind === 39002) {
         const members = event.tags
           .filter((t: string[]) => t[0] === "p")
-          .map((t: string[]) => t[1].slice(0, 12) + "...");
+          .map((t: string[]) => `${t[1].slice(0, 12)}...`);
         console.log(`   MEMBERS [${d}]: ${members.length} members`);
       } else if (event.kind === 39001) {
         const admins = event.tags

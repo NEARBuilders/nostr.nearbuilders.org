@@ -43,14 +43,14 @@ export function RawQueryPanel() {
     <div className="panel">
       <h2>Raw Relay Query</h2>
       <div className="row">
-        <label>Filter (JSON)</label>
-        <textarea value={filter} onChange={(e) => setFilter(e.target.value)} />
+        <label htmlFor="filter">Filter (JSON)</label>
+        <textarea id="filter" value={filter} onChange={(e) => setFilter(e.target.value)} />
       </div>
       <div className="row">
-        <label>Relays</label>
-        <input value={relays} onChange={(e) => setRelays(e.target.value)} />
+        <label htmlFor="relays">Relays</label>
+        <input id="relays" value={relays} onChange={(e) => setRelays(e.target.value)} />
       </div>
-      <button className="btn primary" disabled={loading} onClick={query}>
+      <button type="button" className="btn primary" disabled={loading} onClick={query}>
         {loading ? "Querying..." : "Query"}
       </button>
       <hr className="sep" />

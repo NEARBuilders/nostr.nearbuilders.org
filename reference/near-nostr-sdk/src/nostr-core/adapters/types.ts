@@ -1,5 +1,5 @@
 import type { NostrSubscription } from "../core.js";
-import type { NostrEvent, NostrFilter } from "../types.js";
+import type { NostrEvent } from "../types.js";
 
 // ── Adapter types ──
 

@@ -7,12 +7,12 @@ export function Log({ lines }: { lines: LogLine[] }) {
 
   useEffect(() => {
     if (ref.current) ref.current.scrollTop = ref.current.scrollHeight;
-  }, [lines]);
+  }, []);
 
   return (
     <pre ref={ref} className="log">
-      {lines.map((l, i) => (
-        <div key={i} className={l.cls}>
+      {lines.map((l, _i) => (
+        <div key={l.text} className={l.cls}>
           {l.text}
         </div>
       ))}

@@ -47,12 +47,13 @@ export function ListPanel() {
     <div className="panel">
       <h2>List Comments</h2>
       <div className="row">
-        <label>Target</label>
-        <input value={target} onChange={(e) => setTarget(e.target.value)} />
+        <label htmlFor="target">Target</label>
+        <input id="target" value={target} onChange={(e) => setTarget(e.target.value)} />
       </div>
       <div className="row">
-        <label>Type</label>
+        <label htmlFor="target-type">Type</label>
         <select
+          id="target-type"
           value={targetType}
           onChange={(e) => setTargetType(e.target.value as NearNostrTargetType)}
         >
@@ -63,7 +64,7 @@ export function ListPanel() {
           ))}
         </select>
       </div>
-      <button className="btn primary" disabled={loading} onClick={fetchComments}>
+      <button type="button" className="btn primary" disabled={loading} onClick={fetchComments}>
         {loading ? "Fetching..." : "Fetch"}
       </button>
       <hr className="sep" />

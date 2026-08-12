@@ -47,7 +47,7 @@ export function PublishPanel({ signerState }: { signerState: SignerState }) {
         tags,
       };
 
-      let signed;
+      let signed: { id: string; [key: string]: unknown };
       if (signerState.signer) {
         log("Signing with extension...", "warn");
         signed = await signerState.signer.signEvent(template);
@@ -77,16 +77,17 @@ export function PublishPanel({ signerState }: { signerState: SignerState }) {
     <div className="panel">
       <h2>Publish (Kind 1)</h2>
       <div className="row">
-        <label>Content</label>
-        <textarea value={content} onChange={(e) => setContent(e.target.value)} />
+        <label htmlFor="content">Content</label>
+        <textarea id="content" value={content} onChange={(e) => setContent(e.target.value)} />
       </div>
       <div className="row">
-        <label>Target</label>
-        <input value={target} onChange={(e) => setTarget(e.target.value)} />
+        <label htmlFor="target">Target</label>
+        <input id="target" value={target} onChange={(e) => setTarget(e.target.value)} />
       </div>
       <div className="row">
-        <label>Type</label>
+        <label htmlFor="target-type">Type</label>
         <select
+          id="target-type"
           value={targetType}
           onChange={(e) => setTargetType(e.target.value as NearNostrTargetType)}
         >
@@ -98,6 +99,7 @@ export function PublishPanel({ signerState }: { signerState: SignerState }) {
         </select>
       </div>
       <button
+        type="button"
         className="btn primary"
         disabled={signerState.mode === "none" || loading}
         onClick={publish}

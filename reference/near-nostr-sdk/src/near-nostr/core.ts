@@ -1,12 +1,7 @@
 import { getPublicKey, verifyEvent } from "nostr-tools/pure";
-import type {
-  PublishAdapterOptions,
-  QueryAdapterOptions,
-  RelayAdapter,
-  SubscribeAdapterOptions,
-} from "../nostr-core/adapters/types.js";
+import type { RelayAdapter } from "../nostr-core/adapters/types.js";
 import { NostrCore } from "../nostr-core/core.js";
-import type { NostrEvent, NostrFilter } from "../nostr-core/types.js";
+import type { NostrEvent } from "../nostr-core/types.js";
 import type {
   NearNostrBinding,
   NearNostrComment,
@@ -104,7 +99,7 @@ export class NearNostr {
     // Extract challenge from tags
     const challengeTag = event.tags.find((t) => t[0] === "challenge");
     const challenge = challengeTag?.[1] ?? event.content;
-    if (!challenge || !challenge.startsWith("bind:")) {
+    if (!challenge?.startsWith("bind:")) {
       throw new Error("No binding challenge found in event");
     }
 

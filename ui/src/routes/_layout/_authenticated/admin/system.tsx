@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getAccount, getActiveRuntime, getAppName, getRepository } from "@/app";
 import { Card } from "@/components";
-import { InfoRow } from "@/components/ui/info-row";
 import { PageContainer } from "@/components/layout/page-container";
+import { InfoRow } from "@/components/ui/info-row";
 
 export const Route = createFileRoute("/_layout/_authenticated/admin/system")({
   loader: async ({ context }) => ({
