@@ -12,6 +12,8 @@ export type {
 } from "./adapters/types";
 export type { NostrSubscription } from "./core";
 export { NostrCore } from "./core";
+export { LocalSigner } from "./signers/local-signer";
+export type { NostrSigner } from "./signers/types";
 export type {
   ConnectionResult,
   NostrEvent,
@@ -20,5 +22,3 @@ export type {
   UnsignedNostrEvent,
 } from "./types";
 export { Kind } from "./types";
-export { LocalSigner } from "./signers/local-signer";
-export type { NostrSigner } from "./signers/types";

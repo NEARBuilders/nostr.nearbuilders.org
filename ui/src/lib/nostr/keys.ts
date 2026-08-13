@@ -19,10 +19,7 @@ export function loadSession(nearAccountId: string): NostrSession | null {
 }
 
 export function saveSession(nearAccountId: string, secretKeyHex: string, pubkey: string) {
-  localStorage.setItem(
-    STORAGE_PREFIX + nearAccountId,
-    JSON.stringify({ secretKeyHex, pubkey }),
-  );
+  localStorage.setItem(STORAGE_PREFIX + nearAccountId, JSON.stringify({ secretKeyHex, pubkey }));
 }
 
 export function clearSession(nearAccountId: string) {

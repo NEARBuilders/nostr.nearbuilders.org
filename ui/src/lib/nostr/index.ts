@@ -1,13 +1,13 @@
+export type { NearNostrBinding } from "./binding";
+export { buildTxArgs, getBinding } from "./binding";
+export type { NostrSession } from "./keys";
+export { clearSession, generateAndStore, loadSession, saveSession, secretKeyBytes } from "./keys";
+export { getProfile, listComments, publishComment } from "./relay";
 export type {
+  NearNostrComment,
   NearNostrTarget,
   NearNostrTargetType,
-  NearNostrComment,
   NostrEvent,
   NostrFilter,
 } from "./types";
-export { Kind, DEFAULT_RELAYS } from "./types";
-export type { NostrSession } from "./keys";
-export { loadSession, saveSession, clearSession, generateAndStore, secretKeyBytes } from "./keys";
-export { publishComment, listComments, getProfile } from "./relay";
-export type { NearNostrBinding } from "./binding";
-export { getBinding, buildTxArgs } from "./binding";
+export { DEFAULT_RELAYS, Kind } from "./types";

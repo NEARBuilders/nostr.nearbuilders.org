@@ -55,11 +55,6 @@ export async function getBinding(
   return rows.length > 0 ? mapRow(rows[0]!) : null;
 }
 
-export async function deleteBinding(
-  db: NostrDatabase,
-  nearAccountId: string,
-): Promise<void> {
-  await db
-    .delete(nostrBindings)
-    .where(eq(nostrBindings.nearAccountId, nearAccountId));
+export async function deleteBinding(db: NostrDatabase, nearAccountId: string): Promise<void> {
+  await db.delete(nostrBindings).where(eq(nostrBindings.nearAccountId, nearAccountId));
 }

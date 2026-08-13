@@ -4,17 +4,17 @@ import { MessageSquare } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { useAuthClient } from "@/app";
 import { Card } from "@/components";
+import { PageContainer } from "@/components/layout/page-container";
 import { NostrCommentForm } from "@/components/nostr/nostr-comment-form";
 import { NostrCommentList } from "@/components/nostr/nostr-comment-list";
 import { NostrIdentityCard } from "@/components/nostr/nostr-identity-card";
-import { PageContainer } from "@/components/layout/page-container";
 import {
+  clearSession,
   generateAndStore,
   listComments,
   loadSession,
   publishComment,
   secretKeyBytes,
-  clearSession,
 } from "@/lib/nostr";
 
 const TARGET = { type: "project" as const, id: "test-nostr-page" };

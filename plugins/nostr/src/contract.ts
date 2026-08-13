@@ -31,22 +31,26 @@ export const NearNostrCommentSchema = z.object({
   createdAt: z.number(),
   parentId: z.string().optional(),
   target: NearNostrTargetSchema,
-  profile: z.object({
-    name: z.string().optional(),
-    picture: z.string().optional(),
-  }).optional(),
+  profile: z
+    .object({
+      name: z.string().optional(),
+      picture: z.string().optional(),
+    })
+    .optional(),
 });
 
 export const NearNostrIdentitySchema = z.object({
   nearAccountId: z.string(),
   nostrPubkey: z.string(),
-  profile: z.object({
-    name: z.string().optional(),
-    picture: z.string().optional(),
-    about: z.string().optional(),
-    nip05: z.string().optional(),
-    website: z.string().optional(),
-  }).optional(),
+  profile: z
+    .object({
+      name: z.string().optional(),
+      picture: z.string().optional(),
+      about: z.string().optional(),
+      nip05: z.string().optional(),
+      website: z.string().optional(),
+    })
+    .optional(),
   relay: z.string().optional(),
 });
 
