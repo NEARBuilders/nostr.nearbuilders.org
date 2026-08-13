@@ -138,7 +138,25 @@ function LoginPage() {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={handleNear}
+                    onClick={async () => {
+                      setNearPending(true);
+                      try {
+                        await auth.near.disconnect();
+                        await auth.signIn.near({
+                          onSuccess: async () => {
+                            setNearPending(false);
+                            await handleSuccess("Signed in with NEAR");
+                          },
+                          onError: (error: { code?: string; message?: string }) => {
+                            setNearPending(false);
+                            handleError(error);
+                          },
+                        });
+                      } catch {
+                        setNearPending(false);
+                        toast.error("Failed to disconnect wallet");
+                      }
+                    }}
                     disabled={isPending}
                     className="w-full"
                   >

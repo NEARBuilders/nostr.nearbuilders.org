@@ -4,7 +4,8 @@
   "workspaces": {
     "packages": [
       "api",
-      "ui"
+      "ui",
+      "plugins/nostr"
     ],
     "catalog": {
       "react": "19.2.4",
