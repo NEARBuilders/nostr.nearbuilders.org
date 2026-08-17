@@ -1,10 +1,7 @@
 import { createHash } from "node:crypto";
 import { getPublicKey } from "nostr-tools/pure";
 
-export function deriveNostrSecretKey(
-  nearAccountId: string,
-  signature: Uint8Array,
-): Uint8Array {
+export function deriveNostrSecretKey(nearAccountId: string, signature: Uint8Array): Uint8Array {
   const hash = createHash("sha256");
   hash.update(Buffer.from(signature));
   hash.update(Buffer.from(nearAccountId, "utf-8"));
@@ -18,10 +15,7 @@ export function deriveNostrSecretKeyFromHex(
   return deriveNostrSecretKey(nearAccountId, Buffer.from(signatureHex, "hex"));
 }
 
-export function deriveNostrPubkey(
-  nearAccountId: string,
-  signature: Uint8Array,
-): string {
+export function deriveNostrPubkey(nearAccountId: string, signature: Uint8Array): string {
   const sk = deriveNostrSecretKey(nearAccountId, signature);
   return getPublicKey(sk);
 }

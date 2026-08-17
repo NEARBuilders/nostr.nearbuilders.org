@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight, Building2, FileCode2, Lock, Sparkles } from "lucide-react";
+import { ArrowRight, KeyRound, MessageSquare, Radio, Sparkles } from "lucide-react";
 import { getAccount, getActiveRuntime, getAppName, getRepository } from "@/app";
 import { Button, Card, PageContainer } from "@/components";
 
@@ -9,10 +9,11 @@ export const Route = createFileRoute("/_layout/_public/")({
   }),
   head: () => ({
     meta: [
-      { title: "Welcome | app" },
+      { title: "Welcome | Nostr NEAR Builders" },
       {
         name: "description",
-        content: "A modern starter app built with TanStack Router and Better Auth on NEAR.",
+        content:
+          "NEAR-powered identity and decentralized comments on the Nostr protocol — link NEAR accounts to Nostr pubkeys and publish comments through public relays.",
       },
     ],
   }),
@@ -42,15 +43,15 @@ function LandingPage() {
               {appName}
             </h1>
             <p className="mx-auto max-w-2xl text-base sm:text-lg text-muted-foreground leading-relaxed">
-              A production-ready starter built on TanStack Router, Better Auth, and Effect — with
-              organization management, a guarded dashboard, and a fully typed API.
+              NEAR accounts meet the open Nostr network — derive a Nostr identity from your NEAR
+              session, bind it on-chain, and publish signed comments to public relays.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-3">
             <Button asChild size="lg">
-              <Link to="/login">
-                Get started
+              <Link to="/nostr">
+                Open the testbench
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
@@ -63,41 +64,41 @@ function LandingPage() {
         <section className="grid gap-6 md:grid-cols-3">
           <Card className="p-6 space-y-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-foreground text-background">
-              <Lock className="h-4 w-4" />
+              <KeyRound className="h-4 w-4" />
             </div>
-            <h2 className="text-base font-semibold text-foreground">Secure authentication</h2>
+            <h2 className="text-base font-semibold text-foreground">NEAR ↔ Nostr identity</h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              NEAR wallet sign-in, email, and passkeys via Better Auth — with an authenticated
-              layout guard and session-aware routing.
+              Derive a Nostr pubkey from your NEAR session and bind it on-chain — one identity
+              across both protocols.
             </p>
           </Card>
 
           <Card className="p-6 space-y-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-foreground text-background">
-              <Building2 className="h-4 w-4" />
+              <MessageSquare className="h-4 w-4" />
             </div>
-            <h2 className="text-base font-semibold text-foreground">Organizations</h2>
+            <h2 className="text-base font-semibold text-foreground">Decentralized comments</h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Create and manage organizations with members, roles, invitations, and API keys — all
-              backed by typed oRPC endpoints.
+              Publish and read signed kind-1 comment events targeting builders, projects, scopes,
+              and submissions — no central database required.
             </p>
           </Card>
 
           <Card className="p-6 space-y-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-foreground text-background">
-              <FileCode2 className="h-4 w-4" />
+              <Radio className="h-4 w-4" />
             </div>
-            <h2 className="text-base font-semibold text-foreground">Typed end to end</h2>
+            <h2 className="text-base font-semibold text-foreground">Relay native</h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              One contract drives the API and the client — schemas, validation, and types stay in
-              sync across the whole stack.
+              Connect through public relays like Damus, nos.lol, and Primal, with profiles and
+              content resolved straight from the network.
             </p>
           </Card>
         </section>
 
         {repository && (
           <section className="flex flex-col items-center gap-4 text-center">
-            <p className="text-sm text-muted-foreground">Fork the template and make it yours.</p>
+            <p className="text-sm text-muted-foreground">Fork this app and make it yours.</p>
             <Button asChild variant="outline">
               <a href={repository} target="_blank" rel="noopener noreferrer">
                 {repository}

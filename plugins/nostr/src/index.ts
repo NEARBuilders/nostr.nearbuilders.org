@@ -4,13 +4,13 @@ import { ORPCError } from "every-plugin/orpc";
 import { z } from "every-plugin/zod";
 
 import { contract } from "./contract";
-import { ContextSchema } from "./lib/context";
-import type { PluginsClient } from "./plugins-client.gen";
-import { NostrCore, StandardAdapter } from "./nostr-core";
-import { NearNostr } from "./near-nostr/core";
-import { deriveNostrSecretKey, deriveNostrPubkey } from "./services/key-derivation";
-import { createBinding, getBinding, deleteBinding } from "./services/binding-service";
 import type { NostrDatabase } from "./db/index";
+import { ContextSchema } from "./lib/context";
+import { NearNostr } from "./near-nostr/core";
+import { NostrCore, StandardAdapter } from "./nostr-core";
+import type { PluginsClient } from "./plugins-client.gen";
+import { createBinding, deleteBinding, getBinding } from "./services/binding-service";
+import { deriveNostrPubkey, deriveNostrSecretKey } from "./services/key-derivation";
 
 function initDb(url: string): Promise<NostrDatabase> {
   return (async () => {
@@ -48,7 +48,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
   contract,
 
-  initialize: (config, _plugins, tools) =>
+  initialize: (config, _plugins, _tools) =>
     Effect.gen(function* () {
       yield* Effect.logInfo("[Nostr] Initializing");
 
@@ -73,7 +73,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
     }),
 
   createRouter: (context, builder) => {
-    const { core, adapter, nearNostr, db } = context;
+    const { adapter, nearNostr, db } = context;
 
     function requireNearSession(ctx: {
       near?: { primaryAccountId?: string | null; hasNearAccount?: boolean };

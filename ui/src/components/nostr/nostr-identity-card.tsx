@@ -87,12 +87,7 @@ export function NostrIdentityCard({
           </Button>
         )}
         {hasLocalSession && (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onClearKey}
-          >
+          <Button type="button" variant="outline" size="sm" onClick={onClearKey}>
             Clear Key
           </Button>
         )}

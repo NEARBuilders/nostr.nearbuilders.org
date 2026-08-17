@@ -2,8 +2,8 @@
   "extends": "bos://dev.everything.near/dev.everything.dev",
   "account": "nearbuilding.near",
   "domain": "nostr.nearbuilders.org",
-  "title": "everything.dev",
-  "description": "Open runtime for apps on NEAR, composed from published config and loaded through a shared host, UI, and API runtime.",
+  "title": "Nostr NEAR Builders",
+  "description": "NEAR-powered identity and decentralized comments on the Nostr protocol.",
   "staging": {
     "domain": "dev.everything.dev"
   },

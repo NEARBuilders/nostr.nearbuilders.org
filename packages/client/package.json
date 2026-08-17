@@ -1,0 +1,26 @@
+{
+  "name": "@nearbuilders/nostr-client",
+  "version": "0.1.0",
+  "description": "Typed oRPC client for nostr.nearbuilders.org — NEAR identity and comments on Nostr",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "peerDependencies": {
+    "typescript": "catalog:"
+  },
+  "dependencies": {
+    "@every-plugin/nostr": "workspace:*",
+    "@orpc/client": "catalog:",
+    "@orpc/contract": "catalog:"
+  },
+  "devDependencies": {
+    "typescript": "catalog:"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}

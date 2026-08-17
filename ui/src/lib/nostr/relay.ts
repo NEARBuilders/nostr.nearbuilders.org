@@ -1,6 +1,6 @@
 import { SimplePool } from "nostr-tools/pool";
 import { finalizeEvent } from "nostr-tools/pure";
-import type { NearNostrTarget, NearNostrComment } from "./types";
+import type { NearNostrComment, NearNostrTarget } from "./types";
 
 const DEFAULT_RELAYS = ["wss://relay.damus.io", "wss://nos.lol", "wss://relay.primal.net"];
 
@@ -76,9 +76,15 @@ export async function listComments(opts: {
 
   p.close(relays);
 
-  const filtered = (events as unknown as { id: string; pubkey: string; content: string; created_at: number; tags: string[][] }[]).filter(
-    (e) => e.tags?.some((t) => t[0] === "near_target" && t[1] === targetKey),
-  );
+  const filtered = (
+    events as unknown as {
+      id: string;
+      pubkey: string;
+      content: string;
+      created_at: number;
+      tags: string[][];
+    }[]
+  ).filter((e) => e.tags?.some((t) => t[0] === "near_target" && t[1] === targetKey));
 
   return filtered.map((e) => ({
     eventId: e.id,
@@ -91,7 +97,10 @@ export async function listComments(opts: {
   }));
 }
 
-export async function getProfile(pubkey: string, relays?: string[]): Promise<{
+export async function getProfile(
+  pubkey: string,
+  relays?: string[],
+): Promise<{
   name?: string;
   picture?: string;
   about?: string;
@@ -99,7 +108,9 @@ export async function getProfile(pubkey: string, relays?: string[]): Promise<{
   const relayList = relays ?? DEFAULT_RELAYS;
   const p = pool();
   try {
-    const events = await p.querySync(relayList, [{ kinds: [0], authors: [pubkey], limit: 1 }] as any);
+    const events = await p.querySync(relayList, [
+      { kinds: [0], authors: [pubkey], limit: 1 },
+    ] as any);
     if (events.length === 0) return null;
     return JSON.parse((events[0] as any).content);
   } catch {

@@ -1,8 +1,8 @@
 import { getPublicKey, verifyEvent } from "nostr-tools/pure";
 import type { RelayAdapter } from "../nostr-core/adapters/types";
+import type { NostrSubscription } from "../nostr-core/core";
 import { NostrCore } from "../nostr-core/core";
 import type { NostrEvent } from "../nostr-core/types";
-import type { NostrSubscription } from "../nostr-core/core";
 import type {
   NearNostrBinding,
   NearNostrComment,
