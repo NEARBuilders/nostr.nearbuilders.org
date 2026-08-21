@@ -1,0 +1,14 @@
+{
+  "postgresPorts": {
+    "api": 5432,
+    "auth": 5433
+  },
+  "redisPorts": {},
+  "devPorts": {
+    "host": 3000,
+    "api": 3001,
+    "auth": 3002,
+    "ui": 3003,
+    "pluginPortStart": 3010
+  }
+}
