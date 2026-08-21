@@ -82,6 +82,9 @@ bun lint        # Run linting
 
 - **[everything.dev](https://github.com/nearbuilders/everything-dev)** — the parent runtime platform this project is built on
 - **[better-near-auth](https://github.com/elliotBraem/better-near-auth)** — NEAR SIWN + gasless relay for Better-Auth
+- **[near-nostr-sdk](https://github.com/Kampouse/near-nostr-sdk)** — SDK for NEAR ↔ Nostr integration
+- **[nostr-msig](https://github.com/Kampouse/nostr-msig)** — Nostr multisig
+- **[nostr-testbench](https://github.com/Kampouse/nostr-testbench)** — Nostr testbench
 
 ## License
 
