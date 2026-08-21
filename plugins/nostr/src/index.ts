@@ -9,6 +9,7 @@ import { DatabaseLive } from "./db/layer";
 import type { AuthContext } from "./lib/auth";
 import { ContextSchema, runEffect } from "./lib/context";
 import { NostrConfigLive, resolveNostrConfig } from "./lib/nostr-config";
+import type { PluginsClient } from "./lib/plugins-client.gen";
 import { NearNostrLive, NearNostrService } from "./near-nostr";
 import {
   NostrCoreLive,
@@ -16,7 +17,6 @@ import {
   StandardAdapterLive,
   StandardAdapterService,
 } from "./nostr-core";
-import type { PluginsClient } from "./plugins-client.gen";
 import { BindingsService } from "./services/bindings";
 import { deriveNostrPubkey, deriveNostrSecretKey } from "./services/key-derivation";
 

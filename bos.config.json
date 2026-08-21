@@ -26,7 +26,8 @@
   },
   "plugins": {
     "nostr": {
-      "development": "local:nostr",
+      "development": "local:plugins/nostr",
+      "dependsOn": ["auth"],
       "secrets": [
         "NOSTR_DATABASE_URL"
       ]
