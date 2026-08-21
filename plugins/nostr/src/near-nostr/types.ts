@@ -1,10 +1,7 @@
-export type NearNostrTargetType = "builder" | "project" | "scope" | "submission" | "page";
+import type { NostrTargetInput } from "../contract";
 
-export type NearNostrTarget = {
-  type: NearNostrTargetType;
-  id: string;
-  url?: string;
-};
+export type NearNostrTarget = NostrTargetInput;
+export type NearNostrTargetType = NostrTargetInput["type"];
 
 export type NearNostrBinding = {
   nearAccountId: string;
@@ -43,8 +40,8 @@ export type NearNostrComment = {
 
 export type NearNostrConfig = {
   relays: string[];
-  kvApiUrl?: string;
-  nearRpc?: string;
-  bindingContract?: string;
-  clientName?: string;
+  kvApiUrl: string;
+  nearRpc: string;
+  bindingContract: string;
+  clientName: string;
 };

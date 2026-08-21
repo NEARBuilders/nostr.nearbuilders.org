@@ -21,8 +21,7 @@
       "development": "local:api",
       "secrets": [
         "API_DATABASE_URL"
-      ],
-      "connectSrc": ["wss://relay.damus.io", "wss://nos.lol", "wss://relay.primal.net"]
+      ]
     }
   },
   "plugins": {
@@ -30,8 +29,7 @@
       "development": "local:nostr",
       "secrets": [
         "NOSTR_DATABASE_URL"
-      ],
-      "connectSrc": ["wss://relay.damus.io", "wss://nos.lol", "wss://relay.primal.net"]
+      ]
     }
   }
 }

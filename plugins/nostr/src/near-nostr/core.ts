@@ -1,7 +1,6 @@
 import { getPublicKey, verifyEvent } from "nostr-tools/pure";
 import type { RelayAdapter } from "../nostr-core/adapters/types";
-import type { NostrSubscription } from "../nostr-core/core";
-import { NostrCore } from "../nostr-core/core";
+import type { NostrCore, NostrSubscription } from "../nostr-core/core";
 import type { NostrEvent } from "../nostr-core/types";
 import type {
   NearNostrBinding,
@@ -11,27 +10,22 @@ import type {
   NearNostrTarget,
 } from "./types";
 
-const DEFAULT_RELAYS = ["wss://relay.damus.io", "wss://nos.lol", "wss://relay.primal.net"];
-const DEFAULT_KV_API = "https://kv.main.fastnear.com";
-
 export class NearNostr {
   readonly core: NostrCore;
-  readonly config: Required<
-    Pick<NearNostrConfig, "relays" | "kvApiUrl" | "nearRpc" | "bindingContract" | "clientName">
-  >;
+  readonly config: NearNostrConfig;
   readonly adapters: Map<string, RelayAdapter>;
 
-  constructor(config?: NearNostrConfig) {
-    const relays = config?.relays ?? DEFAULT_RELAYS;
-    this.core = new NostrCore({ relays });
-    this.config = {
-      relays,
-      kvApiUrl: config?.kvApiUrl ?? DEFAULT_KV_API,
-      nearRpc: config?.nearRpc ?? "https://rpc.mainnet.near.org",
-      bindingContract: config?.bindingContract ?? "contextual.near",
-      clientName: config?.clientName ?? "nostr.nearbuilders.org",
-    };
+  constructor(opts: {
+    core: NostrCore;
+    adapter?: RelayAdapter;
+    config: NearNostrConfig;
+  }) {
+    this.core = opts.core;
     this.adapters = new Map();
+    if (opts.adapter) {
+      this.adapters.set(opts.adapter.type, opts.adapter);
+    }
+    this.config = opts.config;
   }
 
   useAdapter(adapter: RelayAdapter): this {
@@ -130,7 +124,7 @@ export class NearNostr {
     parentEventId?: string;
     relays?: string[];
     adapterType?: "standard" | "buzz";
-  }): Promise<NostrEvent> {
+  }): Promise<{ event: NostrEvent; statuses: Map<string, boolean> }> {
     const adapter = this.getAdapter(opts.adapterType);
     const targetKey = `${opts.target.type}:${opts.target.id}`;
     const pubkey = getPublicKey(opts.nostrSecretKey);
@@ -148,7 +142,7 @@ export class NearNostr {
       relays: opts.relays,
     });
 
-    return result.event;
+    return { event: result.event, statuses: result.statuses };
   }
 
   async listComments(opts: {

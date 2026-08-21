@@ -13,6 +13,8 @@ export const NearNostrTargetSchema = z.object({
   url: z.string().optional(),
 });
 
+export type NostrTargetInput = z.infer<typeof NearNostrTargetSchema>;
+
 export const NostrEventSchema = z.object({
   id: z.string(),
   pubkey: z.string(),
@@ -182,12 +184,12 @@ export const contract = oc.router({
       method: "POST",
       path: "/nostr/bindings",
       summary: "Create a NEAR ↔ Nostr binding",
-      description: "Store a binding between a NEAR account and a Nostr pubkey in the database.",
+      description:
+        "Store a binding between the authenticated NEAR account and a Nostr pubkey in the database.",
       tags: ["Identity"],
     })
     .input(
       z.object({
-        nearAccountId: z.string(),
         nostrPubkey: z.string(),
         relay: z.string().optional(),
       }),
@@ -198,15 +200,10 @@ export const contract = oc.router({
   deleteBinding: oc
     .route({
       method: "DELETE",
-      path: "/nostr/bindings/{nearAccountId}",
-      summary: "Remove a NEAR ↔ Nostr binding",
+      path: "/nostr/bindings",
+      summary: "Remove the authenticated NEAR account's Nostr binding",
       tags: ["Identity"],
     })
-    .input(
-      z.object({
-        nearAccountId: z.string(),
-      }),
-    )
     .output(z.object({ success: z.literal(true) }))
     .errors(Errors),
 
