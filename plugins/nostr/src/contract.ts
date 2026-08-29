@@ -32,6 +32,7 @@ export const NearNostrCommentSchema = z.object({
   content: z.string(),
   createdAt: z.number(),
   parentId: z.string().optional(),
+  rootId: z.string().optional(),
   target: NearNostrTargetSchema,
   profile: z
     .object({
@@ -146,6 +147,8 @@ export const contract = oc.router({
         target: NearNostrTargetSchema,
         content: z.string().min(1).max(64000),
         parentEventId: z.string().optional(),
+        rootEventId: z.string().optional(),
+        parentPubkey: z.string().optional(),
         relays: z.array(z.string()).optional(),
         adapterType: z.enum(["standard", "buzz"]).optional().default("standard"),
       }),

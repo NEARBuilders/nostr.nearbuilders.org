@@ -136,6 +136,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
             nearAccountId: ctx.nearAccountId,
             nostrSecretKey: secretKey,
             parentEventId: input.parentEventId,
+            rootEventId: input.rootEventId,
+            parentPubkey: input.parentPubkey,
             relays: input.relays,
             adapterType: input.adapterType,
           });

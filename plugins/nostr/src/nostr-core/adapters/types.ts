@@ -37,6 +37,8 @@ export type PublishAdapterOptions = {
   pubkey: string;
   secretKey: Uint8Array;
   parentEventId?: string;
+  rootEventId?: string;
+  parentPubkey?: string;
   nearAccountId?: string;
   targetUrl?: string;
   extraTags?: string[][];

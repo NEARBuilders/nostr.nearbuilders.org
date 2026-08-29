@@ -1,21 +1,11 @@
-import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { MessageSquare } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { useAuthClient } from "@/app";
-import { Card } from "@/components";
 import { PageContainer } from "@/components/layout/page-container";
-import { NostrCommentForm } from "@/components/nostr/nostr-comment-form";
-import { NostrCommentList } from "@/components/nostr/nostr-comment-list";
+import { NostrComments } from "@/components/nostr/comments";
 import { NostrIdentityCard } from "@/components/nostr/nostr-identity-card";
-import {
-  clearSession,
-  generateAndStore,
-  listComments,
-  loadSession,
-  publishComment,
-  secretKeyBytes,
-} from "@/lib/nostr";
+import { clearSession, generateAndStore, loadSession } from "@/lib/nostr";
 
 const TARGET = { type: "project" as const, id: "test-nostr-page" };
 
@@ -29,7 +19,6 @@ export const Route = createFileRoute("/_layout/_authenticated/nostr")({
 function NostrPage() {
   const auth = useAuthClient();
   const nearAccountId = auth.near.getAccountId();
-  const [publishing, setPublishing] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -37,35 +26,6 @@ function NostrPage() {
     if (!nearAccountId) return null;
     return loadSession(nearAccountId);
   }, [nearAccountId, refreshKey]);
-
-  const {
-    data: comments = [],
-    isLoading: commentsLoading,
-    refetch,
-  } = useQuery({
-    queryKey: ["nostr-comments", TARGET.type, TARGET.id, refreshKey],
-    queryFn: () => listComments({ target: TARGET, limit: 50 }),
-    staleTime: 30_000,
-  });
-
-  const handlePublish = useCallback(
-    async (content: string) => {
-      if (!session || !nearAccountId) return;
-      setPublishing(true);
-      try {
-        await publishComment({
-          target: TARGET,
-          content,
-          secretKey: secretKeyBytes(session),
-          nearAccountId,
-        });
-        setRefreshKey((k) => k + 1);
-      } finally {
-        setPublishing(false);
-      }
-    },
-    [session, nearAccountId],
-  );
 
   const handleGenerateKey = useCallback(() => {
     if (!nearAccountId) return;
@@ -112,30 +72,7 @@ function NostrPage() {
           />
         )}
 
-        <Card className="p-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="text-muted-foreground text-[11px] font-bold uppercase tracking-wider">
-              Comments
-            </div>
-            <button
-              type="button"
-              onClick={() => refetch()}
-              className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Refresh
-            </button>
-          </div>
-
-          {session && (
-            <NostrCommentForm
-              onSubmit={handlePublish}
-              loading={publishing}
-              placeholder={`Comment on ${TARGET.type}:${TARGET.id}...`}
-            />
-          )}
-
-          <NostrCommentList comments={comments} loading={commentsLoading} />
-        </Card>
+        <NostrComments target={TARGET} key={refreshKey} />
       </div>
     </PageContainer>
   );

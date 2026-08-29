@@ -1,5 +1,5 @@
 import { SimplePool } from "nostr-tools/pool";
-import { finalizeEvent } from "nostr-tools/pure";
+import { finalizeEvent, getPublicKey } from "nostr-tools/pure";
 import type { NearNostrComment, NearNostrTarget } from "./types";
 
 const DEFAULT_RELAYS = ["wss://relay.damus.io", "wss://nos.lol", "wss://relay.primal.net"];
@@ -8,25 +8,61 @@ function pool() {
   return new SimplePool();
 }
 
+export function buildCommentTags(opts: {
+  target: NearNostrTarget;
+  nearAccountId: string;
+  pubkey: string;
+  clientName: string;
+  parentEventId?: string;
+  rootEventId?: string;
+  parentPubkey?: string;
+}): string[][] {
+  const targetKey = `${opts.target.type}:${opts.target.id}`;
+  const tags: string[][] = [
+    ["t", opts.target.type],
+    ["t", opts.clientName],
+    ["p", opts.pubkey],
+  ];
+  if (opts.parentEventId) {
+    tags.push(["e", opts.rootEventId ?? opts.parentEventId, "", "root"]);
+    tags.push(["e", opts.parentEventId, "", "reply"]);
+    if (opts.parentPubkey) {
+      tags.push(["p", opts.parentPubkey]);
+    }
+  }
+  if (opts.target.url) {
+    tags.push(["r", opts.target.url]);
+  }
+  tags.push(["client", opts.clientName]);
+  tags.push(["near_target", targetKey]);
+  tags.push(["near_account", opts.nearAccountId]);
+  return tags;
+}
+
 export function publishComment(opts: {
   target: NearNostrTarget;
   content: string;
   secretKey: Uint8Array;
   nearAccountId: string;
+  parentEventId?: string;
+  rootEventId?: string;
+  parentPubkey?: string;
   clientName?: string;
   relays?: string[];
 }): Promise<{ id: string; statuses: Map<string, boolean> }> {
   const relays = opts.relays ?? DEFAULT_RELAYS;
-  const targetKey = `${opts.target.type}:${opts.target.id}`;
   const clientName = opts.clientName ?? "nostr.nearbuilders.org";
+  const pubkey = getPublicKey(opts.secretKey);
 
-  const tags: string[][] = [
-    ["t", opts.target.type],
-    ["t", clientName],
-    ["client", clientName],
-    ["near_target", targetKey],
-    ["near_account", opts.nearAccountId],
-  ];
+  const tags = buildCommentTags({
+    target: opts.target,
+    nearAccountId: opts.nearAccountId,
+    pubkey,
+    clientName,
+    parentEventId: opts.parentEventId,
+    rootEventId: opts.rootEventId,
+    parentPubkey: opts.parentPubkey,
+  });
 
   const event = finalizeEvent(
     {
@@ -86,15 +122,20 @@ export async function listComments(opts: {
     }[]
   ).filter((e) => e.tags?.some((t) => t[0] === "near_target" && t[1] === targetKey));
 
-  return filtered.map((e) => ({
-    eventId: e.id,
-    pubkey: e.pubkey,
-    nearAccountId: e.tags?.find((t) => t[0] === "near_account")?.[1],
-    content: e.content,
-    createdAt: e.created_at,
-    parentId: e.tags?.find((t) => t[0] === "e" && t[3] === "reply")?.[1],
-    target: opts.target,
-  }));
+  return filtered.map((e) => {
+    const parentId = e.tags?.find((t) => t[0] === "e" && t[3] === "reply")?.[1];
+    const rootId = e.tags?.find((t) => t[0] === "e" && t[3] === "root")?.[1] ?? parentId;
+    return {
+      eventId: e.id,
+      pubkey: e.pubkey,
+      nearAccountId: e.tags?.find((t) => t[0] === "near_account")?.[1],
+      content: e.content,
+      createdAt: e.created_at,
+      parentId,
+      rootId,
+      target: opts.target,
+    };
+  });
 }
 
 export async function getProfile(

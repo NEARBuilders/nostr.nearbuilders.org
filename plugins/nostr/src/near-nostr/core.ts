@@ -122,6 +122,8 @@ export class NearNostr {
     nearAccountId: string;
     nostrSecretKey: Uint8Array;
     parentEventId?: string;
+    rootEventId?: string;
+    parentPubkey?: string;
     relays?: string[];
     adapterType?: "standard" | "buzz";
   }): Promise<{ event: NostrEvent; statuses: Map<string, boolean> }> {
@@ -137,6 +139,8 @@ export class NearNostr {
       pubkey,
       secretKey: opts.nostrSecretKey,
       parentEventId: opts.parentEventId,
+      rootEventId: opts.rootEventId,
+      parentPubkey: opts.parentPubkey,
       nearAccountId: opts.nearAccountId,
       targetUrl: opts.target.url,
       relays: opts.relays,
@@ -174,6 +178,7 @@ export class NearNostr {
     let comments: NearNostrComment[] = [];
     for (const event of events) {
       const parentTag = event.tags.find((t) => t[0] === "e" && t[3] === "reply");
+      const rootTag = event.tags.find((t) => t[0] === "e" && t[3] === "root");
       const nearAccount = event.tags.find((t) => t[0] === "near_account")?.[1];
 
       if (opts.requireBound && !nearAccount) continue;
@@ -185,6 +190,7 @@ export class NearNostr {
         content: event.content,
         createdAt: event.created_at,
         parentId: parentTag?.[1],
+        rootId: rootTag?.[1] ?? parentTag?.[1],
         target: opts.target,
       });
     }

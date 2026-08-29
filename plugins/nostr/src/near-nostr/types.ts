@@ -31,6 +31,7 @@ export type NearNostrComment = {
   content: string;
   createdAt: number;
   parentId?: string;
+  rootId?: string;
   target: NearNostrTarget;
   profile?: {
     name?: string;

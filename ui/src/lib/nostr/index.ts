@@ -3,6 +3,7 @@ export { buildTxArgs, getBinding } from "./binding";
 export type { NostrSession } from "./keys";
 export { clearSession, generateAndStore, loadSession, saveSession, secretKeyBytes } from "./keys";
 export { getProfile, listComments, publishComment } from "./relay";
+export { buildThreads, type OrphanPolicy, type ThreadNode } from "./threads";
 export type {
   NearNostrComment,
   NearNostrTarget,

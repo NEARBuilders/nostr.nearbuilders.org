@@ -6,10 +6,14 @@ export function NostrCommentForm({
   onSubmit,
   loading,
   placeholder,
+  autoFocus = false,
+  submitLabel = "Publish",
 }: {
   onSubmit: (content: string) => Promise<void>;
   loading: boolean;
   placeholder?: string;
+  autoFocus?: boolean;
+  submitLabel?: string;
 }) {
   const [content, setContent] = useState("");
 
@@ -27,6 +31,7 @@ export function NostrCommentForm({
         onChange={(e) => setContent(e.target.value)}
         rows={3}
         disabled={loading}
+        autoFocus={autoFocus}
         className="w-full resize-none"
       />
       <div className="flex justify-end">
@@ -36,7 +41,7 @@ export function NostrCommentForm({
           disabled={!content.trim() || loading}
           size="sm"
         >
-          {loading ? "Publishing..." : "Publish"}
+          {loading ? "Publishing..." : submitLabel}
         </Button>
       </div>
     </div>
