@@ -1,6 +1,6 @@
 import { SimplePool } from "nostr-tools/pool";
 import { finalizeEvent, getPublicKey } from "nostr-tools/pure";
-import type { NearNostrComment, NearNostrTarget } from "./types";
+import { COMMENT_KINDS, Kind, type NearNostrComment, type NearNostrTarget } from "./types";
 
 const DEFAULT_RELAYS = ["wss://relay.damus.io", "wss://nos.lol", "wss://relay.primal.net"];
 
@@ -66,7 +66,7 @@ export function publishComment(opts: {
 
   const event = finalizeEvent(
     {
-      kind: 1,
+      kind: Kind.COMMENT,
       created_at: Math.floor(Date.now() / 1000),
       tags,
       content: opts.content,
@@ -105,7 +105,7 @@ export async function listComments(opts: {
 
   const p = pool();
   const events = await p.querySync(relays, {
-    kinds: [1],
+    kinds: [...COMMENT_KINDS],
     "#t": [opts.target.type, clientName],
     limit: opts.limit ?? 50,
   } as any);

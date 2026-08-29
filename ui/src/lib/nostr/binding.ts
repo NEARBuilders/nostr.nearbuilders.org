@@ -1,7 +1,45 @@
+import { finalizeEvent } from "nostr-tools/pure";
 import { DEFAULT_RELAYS } from "./types";
 
 const KV_API = "https://kv.main.fastnear.com";
 const BINDING_CONTRACT = "contextual.near";
+
+export const CLIENT_NAME = "nostr.nearbuilders.org";
+
+export type SignedBindingEvent = {
+  id: string;
+  pubkey: string;
+  content: string;
+  tags: string[][];
+  created_at: number;
+  sig: string;
+};
+
+export function createBindingChallenge(
+  nearAccountId: string,
+  expiresInSeconds = 300,
+): { challenge: string; expiresAt: number } {
+  const expiresAt = Math.floor(Date.now() / 1000) + expiresInSeconds;
+  return {
+    challenge: `bind:${nearAccountId}:${expiresAt}:${CLIENT_NAME}`,
+    expiresAt,
+  };
+}
+
+export function signBindingChallenge(secretKey: Uint8Array, challenge: string): SignedBindingEvent {
+  return finalizeEvent(
+    {
+      kind: 27235,
+      created_at: Math.floor(Date.now() / 1000),
+      tags: [
+        ["challenge", challenge],
+        ["client", CLIENT_NAME],
+      ],
+      content: challenge,
+    },
+    secretKey,
+  ) as SignedBindingEvent;
+}
 
 export type NearNostrBinding = {
   nearAccountId: string;

@@ -1,11 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { MessageSquare } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useState } from "react";
 import { useAuthClient } from "@/app";
 import { PageContainer } from "@/components/layout/page-container";
 import { NostrComments } from "@/components/nostr/comments";
 import { NostrIdentityCard } from "@/components/nostr/nostr-identity-card";
-import { clearSession, generateAndStore, loadSession } from "@/lib/nostr";
 
 const TARGET = { type: "project" as const, id: "test-nostr-page" };
 
@@ -19,30 +18,7 @@ export const Route = createFileRoute("/_layout/_authenticated/nostr")({
 function NostrPage() {
   const auth = useAuthClient();
   const nearAccountId = auth.near.getAccountId();
-  const [generating, setGenerating] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-
-  const session = useMemo(() => {
-    if (!nearAccountId) return null;
-    return loadSession(nearAccountId);
-  }, [nearAccountId, refreshKey]);
-
-  const handleGenerateKey = useCallback(() => {
-    if (!nearAccountId) return;
-    setGenerating(true);
-    try {
-      generateAndStore(nearAccountId);
-      setRefreshKey((k) => k + 1);
-    } finally {
-      setGenerating(false);
-    }
-  }, [nearAccountId]);
-
-  const handleClearKey = useCallback(() => {
-    if (!nearAccountId) return;
-    clearSession(nearAccountId);
-    setRefreshKey((k) => k + 1);
-  }, [nearAccountId]);
 
   return (
     <PageContainer variant="wide">
@@ -63,12 +39,7 @@ function NostrPage() {
         {nearAccountId && (
           <NostrIdentityCard
             nearAccountId={nearAccountId}
-            nostrPubkey={session?.pubkey ?? ""}
-            hasBinding={false}
-            hasLocalSession={!!session}
-            onGenerateKey={handleGenerateKey}
-            onClearKey={handleClearKey}
-            generating={generating}
+            onKeyChange={() => setRefreshKey((k) => k + 1)}
           />
         )}
 

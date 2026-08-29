@@ -52,6 +52,9 @@ export type NearNostrComment = {
 export const Kind = {
   METADATA: 0,
   TEXT_NOTE: 1,
+  COMMENT: 1111,
 } as const;
+
+export const COMMENT_KINDS = [Kind.COMMENT, Kind.TEXT_NOTE] as const;
 
 export const DEFAULT_RELAYS = ["wss://relay.damus.io", "wss://nos.lol", "wss://relay.primal.net"];

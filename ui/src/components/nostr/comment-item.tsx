@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { BadgeCheck, ChevronDown, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -9,12 +9,14 @@ export function CommentItem({
   node,
   replyingTo,
   publishing,
+  bindingMap,
   onReply,
   onSubmitReply,
 }: {
   node: ThreadNode;
   replyingTo: string | null;
   publishing: boolean;
+  bindingMap: Record<string, string | null>;
   onReply: (eventId: string) => void;
   onSubmitReply: (
     content: string,
@@ -26,6 +28,9 @@ export function CommentItem({
   const [collapsed, setCollapsed] = useState(false);
   const replyCount = node.children.length;
   const isReplying = replyingTo === node.eventId;
+  const verified = !!node.nearAccountId && bindingMap[node.nearAccountId] === node.pubkey;
+
+  const displayName = node.profile?.name ?? (verified ? node.nearAccountId : undefined);
 
   return (
     <div className="space-y-2">
@@ -34,15 +39,21 @@ export function CommentItem({
           <Avatar className="w-6 h-6">
             <AvatarImage src={node.profile?.picture} />
             <AvatarFallback className="text-[10px]">
-              {(node.profile?.name ?? node.pubkey).slice(0, 2).toUpperCase()}
+              {(displayName ?? node.pubkey).slice(0, 2).toUpperCase()}
             </AvatarFallback>
           </Avatar>
           <span className="text-sm font-medium text-foreground">
-            {node.profile?.name ?? `${node.pubkey.slice(0, 12)}...`}
+            {displayName ?? `${node.pubkey.slice(0, 12)}...`}
           </span>
-          {node.nearAccountId && (
-            <span className="text-[11px] text-muted-foreground font-mono">
+          {node.nearAccountId && verified && (
+            <span className="flex items-center gap-1 text-[11px] text-green-600 font-mono">
+              <BadgeCheck className="h-3 w-3" />
               {node.nearAccountId}
+            </span>
+          )}
+          {node.nearAccountId && !verified && (
+            <span className="text-[11px] text-muted-foreground font-mono">
+              claimed {node.nearAccountId}
             </span>
           )}
           <span className="text-[11px] text-muted-foreground ml-auto">
@@ -89,6 +100,7 @@ export function CommentItem({
               node={child}
               replyingTo={replyingTo}
               publishing={publishing}
+              bindingMap={bindingMap}
               onReply={onReply}
               onSubmitReply={onSubmitReply}
             />

@@ -4,6 +4,7 @@ import { useAuthClient } from "@/app";
 import { Card } from "@/components";
 import {
   buildThreads,
+  getBinding,
   listComments,
   loadSession,
   type NearNostrTarget,
@@ -42,6 +43,26 @@ export function NostrComments({
   });
 
   const tree = useMemo(() => buildThreads(comments, { orphans }), [comments, orphans]);
+
+  const accounts = useMemo(
+    () => [...new Set(comments.map((c) => c.nearAccountId).filter((a): a is string => !!a))],
+    [comments],
+  );
+
+  const { data: bindingMap = {} } = useQuery({
+    queryKey: ["nostr-bindings", accounts],
+    queryFn: async () => {
+      const map: Record<string, string | null> = {};
+      await Promise.all(
+        accounts.map(async (acc) => {
+          const binding = await getBinding(acc);
+          map[acc] = binding?.nostrPubkey ?? null;
+        }),
+      );
+      return map;
+    },
+    enabled: accounts.length > 0,
+  });
 
   const handlePublish = async (
     content: string,
@@ -110,6 +131,7 @@ export function NostrComments({
               node={node}
               replyingTo={replyingTo}
               publishing={publishing}
+              bindingMap={bindingMap}
               onReply={(id) => setReplyingTo(replyingTo === id ? null : id)}
               onSubmitReply={handlePublish}
             />

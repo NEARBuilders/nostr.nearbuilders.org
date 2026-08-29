@@ -1,5 +1,11 @@
 export type { NearNostrBinding } from "./binding";
-export { buildTxArgs, getBinding } from "./binding";
+export {
+  buildTxArgs,
+  createBindingChallenge,
+  getBinding,
+  type SignedBindingEvent,
+  signBindingChallenge,
+} from "./binding";
 export type { NostrSession } from "./keys";
 export { clearSession, generateAndStore, loadSession, saveSession, secretKeyBytes } from "./keys";
 export { getProfile, listComments, publishComment } from "./relay";
