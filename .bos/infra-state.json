@@ -1,7 +1,8 @@
 {
   "postgresPorts": {
     "api": 5432,
-    "auth": 5433
+    "auth": 5433,
+    "nostr": 5434
   },
   "redisPorts": {},
   "devPorts": {

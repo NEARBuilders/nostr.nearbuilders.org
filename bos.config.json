@@ -15,22 +15,31 @@
   },
   "app": {
     "ui": {
-      "development": "local:ui"
+      "development": "local:ui",
+      "production": "https://elliot-braem-7737-ui-nostr-nearbuilders-org-nearb-3654c5dbd-ze.zephyrcloud.app",
+      "integrity": "sha384-qU81KwnZ872hw6WLi7FGWD6W0f1PD6cJ+zKJ97m+ZTz8ROatO9aA/DnHwFhhS/z6",
+      "ssr": null
     },
     "api": {
       "development": "local:api",
       "secrets": [
         "API_DATABASE_URL"
-      ]
+      ],
+      "production": "https://elliot-braem-7738-api-nostr-nearbuilders-org-near-d3ea928b4-ze.zephyrcloud.app",
+      "integrity": "sha384-luPqo0gcVHDsRZrIar8VcIwHVRDszd8dGxtM6FQfRGy+j/nM6r6urtt8OToRmxip"
     }
   },
   "plugins": {
     "nostr": {
       "development": "local:plugins/nostr",
-      "dependsOn": ["auth"],
+      "dependsOn": [
+        "auth"
+      ],
       "secrets": [
         "NOSTR_DATABASE_URL"
-      ]
+      ],
+      "production": "https://elliot-braem-7739-every-plugin-nostr-nostr-nearbu-a240acca3-ze.zephyrcloud.app",
+      "integrity": "sha384-HrNENKE9M63lvwNYe0QfLjsLqS4lPKcu+UL8cITIo511lUEMOKyRWdxANl+URnP3"
     }
   }
 }
