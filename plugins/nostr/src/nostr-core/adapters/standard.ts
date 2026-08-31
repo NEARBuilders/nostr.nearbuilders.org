@@ -10,6 +10,10 @@ import type {
   SubscribeAdapterOptions,
 } from "./types";
 
+/** Comment kinds: NIP-22 dedicated comment kind + legacy kind 1 */
+const COMMENT_KINDS = [1111, 1] as const;
+const PUBLISH_KIND = 1111;
+
 export class StandardAdapter implements RelayAdapter {
   readonly type = "standard" as const;
   readonly pool: SimplePool;
@@ -24,7 +28,7 @@ export class StandardAdapter implements RelayAdapter {
     const tags = this.#buildTags(opts);
     const event = finalizeEvent(
       {
-        kind: 1,
+        kind: PUBLISH_KIND,
         created_at: Math.floor(Date.now() / 1000),
         tags,
         content: opts.content,
@@ -69,7 +73,7 @@ export class StandardAdapter implements RelayAdapter {
   async query(opts: QueryAdapterOptions): Promise<{ events: NostrEvent[] }> {
     const relays = opts.relays ?? this.relays;
     const filter: NostrFilter = {
-      kinds: [1],
+      kinds: [...COMMENT_KINDS],
       "#t": [opts.targetType, opts.clientName],
       limit: opts.limit ?? 100,
     };
@@ -91,7 +95,7 @@ export class StandardAdapter implements RelayAdapter {
 
     const closer = this.pool.subscribeMany(
       relays,
-      [{ kinds: [1], "#t": [opts.targetType], limit: 100 }] as any,
+      [{ kinds: [...COMMENT_KINDS], "#t": [opts.targetType], limit: 100 }] as any,
       {
         onevent: (event: any) => {
           if (closed || !eventCb) return;
