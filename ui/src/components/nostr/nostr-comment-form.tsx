@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -6,23 +6,29 @@ export function NostrCommentForm({
   onSubmit,
   loading,
   placeholder,
+  replyTo,
 }: {
-  onSubmit: (content: string) => Promise<void>;
+  onSubmit: (content: string, parentEventId?: string) => Promise<void>;
   loading: boolean;
   placeholder?: string;
+  replyTo?: string;
 }) {
   const [content, setContent] = useState("");
 
-  const handleSubmit = async () => {
-    if (!content.trim()) return;
-    await onSubmit(content.trim());
+  useEffect(() => {
     setContent("");
+  }, [replyTo]);
+
+  const handleSubmit = async () => {
+    const trimmed = content.trim();
+    if (!trimmed) return;
+    await onSubmit(trimmed, replyTo);
   };
 
   return (
     <div className="space-y-2">
       <Textarea
-        placeholder={placeholder ?? "Write a comment..."}
+        placeholder={replyTo ? "Write a reply..." : (placeholder ?? "Write a comment...")}
         value={content}
         onChange={(e) => setContent(e.target.value)}
         rows={3}
@@ -36,7 +42,7 @@ export function NostrCommentForm({
           disabled={!content.trim() || loading}
           size="sm"
         >
-          {loading ? "Publishing..." : "Publish"}
+          {replyTo ? (loading ? "Replying…" : "Reply") : loading ? "Publishing…" : "Publish"}
         </Button>
       </div>
     </div>

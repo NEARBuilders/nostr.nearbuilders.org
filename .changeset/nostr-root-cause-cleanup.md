@@ -10,7 +10,7 @@ Root-cause cleanup of the nostr plugin (audit-driven; no behaviour changes in th
 
 ## Wire types via `z.infer`
 
-New `plugins/nostr/src/lib/schemas.ts` defines `ProfileSchema`, `CommentProfileSchema`, `NostrCommentSchema`, `RelayStatusSchema`, `PublishResultSchema`, `ChannelInfoSchema`. Contract (`contract.ts`) and services (`binding.ts`, `nostr.ts`, `standard.ts`) both consume them, eliminating the hand-maintained parallel interface that could drift. Comment profile is intentionally a separate schema from the standalone profile (kind-1 notes don't carry their own pubkey; the `getProfileV1` endpoint shape does).
+New `plugins/nostr/src/lib/schemas.ts` defines `ProfileSchema`, `CommentProfileSchema`, `NostrCommentSchema`, `RelayStatusSchema`, `PublishResultSchema`, `ChannelInfoSchema`. Contract (`contract.ts`) and services (`binding.ts`, `nostr.ts`, `standard.ts`) both consume them, eliminating the hand-maintained parallel interface that could drift. Comment profile is intentionally a separate schema from the standalone profile (kind-1 notes don't carry their own pubkey; the `getProfile` endpoint shape does).
 
 Adapter-level `PublishResult` (Map-shaped) renamed to `AdapterPublishResult` to stop colliding with the service-level (array-shaped) one.
 

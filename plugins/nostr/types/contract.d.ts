@@ -24,7 +24,7 @@ export declare const contract: {
         status: z.ZodLiteral<"ok">;
         timestamp: z.ZodString;
     }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, Record<never, never>>, Record<never, never>>;
-    getBindingV1: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+    getBinding: import("@orpc/contract").ContractProcedure<z.ZodObject<{
         nearAccountId: z.ZodString;
     }, z.core.$strip>, z.ZodNullable<z.ZodObject<{
         npub: z.ZodString;
@@ -44,7 +44,7 @@ export declare const contract: {
             }, z.core.$strip>;
         };
     }>>, Record<never, never>>;
-    getIdentityV1: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+    getIdentity: import("@orpc/contract").ContractProcedure<z.ZodObject<{
         nearAccountId: z.ZodString;
         enrichProfile: z.ZodDefault<z.ZodOptional<z.ZodBoolean>>;
     }, z.core.$strip>, z.ZodNullable<z.ZodObject<{
@@ -54,6 +54,7 @@ export declare const contract: {
         proof: z.ZodString;
         boundAt: z.ZodNumber;
         profile: z.ZodNullable<z.ZodOptional<z.ZodObject<{
+            pubkey: z.ZodString;
             name: z.ZodNullable<z.ZodOptional<z.ZodString>>;
             picture: z.ZodNullable<z.ZodOptional<z.ZodString>>;
             about: z.ZodNullable<z.ZodOptional<z.ZodString>>;
@@ -154,7 +155,7 @@ export declare const contract: {
             }, z.core.$strip>;
         };
     }>>, Record<never, never>>;
-    listCommentsV1: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+    listComments: import("@orpc/contract").ContractProcedure<z.ZodObject<{
         target: z.ZodString;
         targetType: z.ZodDefault<z.ZodString>;
         adapterType: z.ZodOptional<z.ZodEnum<{
@@ -314,7 +315,7 @@ export declare const contract: {
             }, z.core.$strip>;
         };
     }>>, Record<never, never>>;
-    getProfileV1: import("@orpc/contract").ContractProcedure<z.ZodObject<{
+    getProfile: import("@orpc/contract").ContractProcedure<z.ZodObject<{
         pubkey: z.ZodString;
     }, z.core.$strip>, z.ZodNullable<z.ZodObject<{
         pubkey: z.ZodString;

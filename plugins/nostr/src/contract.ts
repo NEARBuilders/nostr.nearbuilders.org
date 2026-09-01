@@ -9,7 +9,7 @@ const Errors = {
   BAD_REQUEST: { status: 400, message: "Bad request" },
 };
 
-// ── V1 parity schemas (from nearbuilders.org nostr-bindings / nostr-comments) ──
+// ── Binding & identity schemas ──
 
 const BindingOutput = z.object({
   npub: z.string(),
@@ -71,16 +71,15 @@ export const contract = oc.router({
       }),
     ),
 
-  // ── V1 parity routes (mirror nearbuilders.org nostr-bindings + nostr-comments) ──
+  // ── Binding routes (FastNear KV-backed bindings + challenge/verify) ──
 
-  // From nostr-bindings: FastNear KV-backed bindings + challenge/verify
-  getBindingV1: oc
+  getBinding: oc
     .route({ method: "GET", path: "/v1/binding/{nearAccountId}" })
     .input(z.object({ nearAccountId: z.string().min(1) }))
     .output(BindingOutput.nullable())
     .errors({ BAD_REQUEST }),
 
-  getIdentityV1: oc
+  getIdentity: oc
     .route({ method: "GET", path: "/v1/identity/{nearAccountId}" })
     .input(
       z.object({
@@ -149,7 +148,7 @@ export const contract = oc.router({
     .errors({ BAD_REQUEST }),
 
   // From nostr-comments: relay-adapter-backed comments + low-level relay access
-  listCommentsV1: oc
+  listComments: oc
     .route({ method: "GET", path: "/v1/comments" })
     .input(
       z.object({
@@ -256,7 +255,7 @@ export const contract = oc.router({
     .output(PublishResultSchema)
     .errors({ BAD_REQUEST }),
 
-  getProfileV1: oc
+  getProfile: oc
     .route({ method: "GET", path: "/v1/nostr/profile/{pubkey}" })
     .input(z.object({ pubkey: z.string().min(1) }))
     .output(ProfileSchema.nullable())

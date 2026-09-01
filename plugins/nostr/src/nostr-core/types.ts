@@ -45,3 +45,15 @@ export function parseRelayEvent(raw: unknown): NostrEvent | null {
   }
   return raw as NostrEvent;
 }
+
+/**
+ * Canonical `near_target` tag value for a comment: `${targetType}:${target}`.
+ * Single source of truth so adapters + validators + UI all share the same
+ * composite-key convention (was previously two callers each picking raw or
+ * composite, making UI and plugin comments mutually invisible).
+ */
+export const nearTargetKey = (targetType: string, target: string): string =>
+  `${targetType}:${target}`;
+
+export const findNearTargetTag = (event: NostrEvent): string | undefined =>
+  event.tags.find((t) => t[0] === "near_target")?.[1];
