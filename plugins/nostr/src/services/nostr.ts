@@ -1,21 +1,15 @@
-/**
- * Nostr comments service — standard/buzz relay adapters.
- * Stateless: comments are on Nostr relays, no local DB.
- *
- * Ported from nearbuilders.org plugins/nostr-comments (PR #162) for parity.
- * Adapted: imports near-nostr-sdk → this repo's local nostr-core adapters.
- * Fix: KV_API was referenced but never declared upstream; declared here.
- */
-
-import { createHash } from "crypto";
+import { createHash } from "node:crypto";
+import { Context, Effect, Layer } from "every-plugin/effect";
 import WebSocket from "ws";
+import { NostrConfigTag } from "../lib/nostr-config";
 import { BuzzAdapter, StandardAdapter } from "../nostr-core/adapters";
 import type { RelayAdapter } from "../nostr-core/adapters/types";
 import type { NostrEvent } from "../nostr-core/types";
 
+const PUBLISH_TIMEOUT_MS = 5_000;
 const KV_API = "https://kv.main.fastnear.com";
 
-// ── Types ──
+const DEFAULT_RELAY_FALLBACKS = ["wss://nos.lol", "wss://relay.damus.io", "wss://relay.primal.net"];
 
 export type NostrComment = {
   id: string;
@@ -28,6 +22,7 @@ export type NostrComment = {
   createdAt: number;
   tags?: string[][];
   source: "standard" | "buzz";
+  profile?: NostrProfile | null;
 };
 
 export type PublishResult = {
@@ -41,293 +36,310 @@ export type ChannelInfo = {
   members?: number | null;
 };
 
-// ── NostrCommentService ──
+export type NostrProfile = {
+  pubkey: string;
+  name?: string | null;
+  picture?: string | null;
+  about?: string | null;
+  nip05?: string | null;
+  website?: string | null;
+};
 
-/**
- * Unified service wrapping relay adapters.
- * Accepts pre-signed events (from extension/nsec) — never holds user keys server-side.
- */
-export class NostrCommentService {
-  #adapters: Map<string, RelayAdapter> = new Map();
-
-  constructor(opts: {
-    standardRelays?: string[];
-    buzzRelays?: string[];
-    buzzSecretKey?: Uint8Array; // only for Buzz NIP-42 auth (server identity, not user signing)
-  }) {
-    // Standard adapter — no keys needed
-    if (opts.standardRelays?.length) {
-      this.#adapters.set("standard", new StandardAdapter(opts.standardRelays));
-    }
-
-    // Buzz adapter — needs a key for NIP-42 relay auth, but NOT for signing user events
-    if (opts.buzzRelays?.length && opts.buzzSecretKey) {
-      this.#adapters.set(
-        "buzz",
-        new BuzzAdapter({
-          relays: opts.buzzRelays,
-          secretKey: opts.buzzSecretKey,
-          resolveChannel: (target: string) => {
-            return createHash("sha256").update(target).digest("hex").slice(0, 16);
-          },
-        }),
-      );
-    }
-  }
-
-  getAdapter(adapterType: string): RelayAdapter {
-    const adapter = this.#adapters.get(adapterType);
-    if (!adapter) throw new Error(`Unknown adapter: ${adapterType}`);
-    return adapter;
-  }
-
-  hasAdapter(adapterType: string): boolean {
-    return this.#adapters.has(adapterType);
-  }
-
-  /** List comments (read-only, no signing needed) */
-  async listComments(opts: {
+export interface NostrCommentServiceShape {
+  readonly listComments: (opts: {
     target: string;
     targetType: string;
     adapterType: string;
     limit?: number;
     since?: number;
-    enrich?: boolean; // batch-resolve profiles
-    requireBound?: boolean; // filter: must have near_account tag
-    requireVerified?: boolean; // filter: must have verified KV binding
-  }): Promise<NostrComment[]> {
-    const adapter = this.getAdapter(opts.adapterType);
-    const { events } = await adapter.query({
-      target: opts.target,
-      targetType: opts.targetType,
-      clientName: "near-nostr-sdk",
-      limit: opts.limit,
-      since: opts.since,
-    });
-
-    const comments = events.map((e) =>
-      this.#toComment(e, opts.target, opts.targetType, opts.adapterType as "standard" | "buzz"),
-    );
-
-    // requireBound: skip comments without near_account tag
-    let filtered = opts.requireBound ? comments.filter((c) => c.nearAccountId) : comments;
-
-    // requireVerified: batch-check KV bindings
-    if (opts.requireVerified) {
-      const accounts = [
-        ...new Set(filtered.filter((c) => c.nearAccountId).map((c) => c.nearAccountId!)),
-      ];
-      const BATCH = 5;
-      const verified = new Set<string>();
-      for (let i = 0; i < accounts.length; i += BATCH) {
-        const batch = accounts.slice(i, i + BATCH);
-        const results = await Promise.allSettled(
-          batch.map(async (acc) => {
-            try {
-              const res = await fetch(`${KV_API}/v0/latest/contextual.near/${acc}/nostr/${acc}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: "{}",
-              });
-              if (!res.ok) return null;
-              const data = (await res.json()) as {
-                entries?: Array<{ value?: unknown }>;
-              };
-              return data?.entries?.[0]?.value ? true : null;
-            } catch {
-              return null;
-            }
-          }),
-        );
-        results.forEach((r, idx) => {
-          if (r.status === "fulfilled" && r.value) verified.add(batch[idx]!);
-        });
-      }
-      filtered = filtered.filter((c) => c.nearAccountId && verified.has(c.nearAccountId));
-    }
-
-    // enrich profiles after filtering (fewer pubkeys to resolve)
-    if (opts.enrich) {
-      const pubkeys = [...new Set(filtered.map((c) => c.pubkey))];
-      const adapter = this.getAdapter("standard") as StandardAdapter;
-      const BATCH = 5;
-      for (let i = 0; i < pubkeys.length; i += BATCH) {
-        const batch = pubkeys.slice(i, i + BATCH);
-        const profiles = await Promise.allSettled(batch.map((pk) => adapter.getProfile(pk)));
-        const profileMap = new Map<string, any>();
-        profiles.forEach((r, idx) => {
-          if (r.status === "fulfilled" && r.value) profileMap.set(batch[idx]!, r.value);
-        });
-        for (const c of filtered) {
-          if (profileMap.has(c.pubkey)) (c as any).profile = profileMap.get(c.pubkey);
-        }
-      }
-    }
-
-    return filtered;
-  }
-
-  /** Publish a pre-signed event (signed client-side by extension/nsec) */
-  async publishSigned(opts: {
+    enrich?: boolean;
+    requireBound?: boolean;
+    requireVerified?: boolean;
+  }) => Effect.Effect<NostrComment[], never>;
+  readonly publishSigned: (opts: {
     event: NostrEvent;
     target: string;
     targetType: string;
     adapterType: string;
-  }): Promise<PublishResult> {
-    // Bypass adapter publish — use raw ws directly to avoid bundling issues (parity with upstream)
-    const adapter = this.getAdapter(opts.adapterType);
-    const relays = (adapter as any).relays ?? [
-      "wss://nos.lol",
-      "wss://relay.damus.io",
-      "wss://relay.primal.net",
-    ];
-    const statuses: Array<{ relay: string; success: boolean }> = [];
-
-    await Promise.all(
-      relays.map(
-        (url: string) =>
-          new Promise<void>((resolve) => {
-            const socket = new WebSocket(url);
-            const timeout = setTimeout(() => {
-              statuses.push({ relay: url, success: false });
-              socket.close();
-              resolve();
-            }, 5000);
-            socket.on("open", () => socket.send(JSON.stringify(["EVENT", opts.event])));
-            socket.on("message", (data: any) => {
-              const msg = JSON.parse(data.toString());
-              console.log("[wsPublish] relay response:", url, JSON.stringify(msg));
-              if (msg[0] === "OK") {
-                statuses.push({ relay: url, success: msg[2] === true });
-                clearTimeout(timeout);
-                socket.close();
-                resolve();
-              }
-            });
-            socket.on("error", (err: any) => {
-              console.error("[wsPublish] relay error:", url, err?.message || err);
-              statuses.push({ relay: url, success: false });
-              clearTimeout(timeout);
-              resolve();
-            });
-          }),
-      ),
-    );
-
-    return {
-      eventId: (opts.event as any).id ?? "",
-      statuses,
-    };
-  }
-
-  /** List Buzz channels */
-  async listChannels(adapterType?: string): Promise<ChannelInfo[]> {
-    const type = adapterType ?? "buzz";
-    const adapter = this.getAdapter(type);
-    if (!(adapter instanceof BuzzAdapter)) {
-      throw new Error("listChannels only works with Buzz adapter");
-    }
-    const events = await adapter.listChannels();
-    return events.map((e: NostrEvent) => {
-      const id = e.tags.find((t: string[]) => t[0] === "d")?.[1];
-      const name = e.tags.find((t: string[]) => t[0] === "name")?.[1];
-      return { id: id ?? e.id, name: name ?? null };
-    });
-  }
-
-  // ── nostr-core: low-level relay access ──
-
-  /** Raw relay query — any filter shape */
-  async rawQuery(opts: {
+  }) => Effect.Effect<PublishResult, never>;
+  readonly listChannels: (adapterType?: string) => Effect.Effect<ChannelInfo[], never>;
+  readonly rawQuery: (opts: {
     filter: Record<string, unknown>;
     relays?: string[];
-  }): Promise<NostrEvent[]> {
-    const adapter = this.getAdapter("standard") as StandardAdapter;
-    // Use the standard adapter's raw pool for raw queries
-    return adapter.queryRaw(opts.filter, opts.relays);
-  }
-
-  /** Publish any pre-signed event (any kind) */
-  async rawPublish(opts: { event: NostrEvent; relays?: string[] }): Promise<PublishResult> {
-    const relays = opts.relays ?? [
-      "wss://nos.lol",
-      "wss://relay.damus.io",
-      "wss://relay.primal.net",
-    ];
-    const statuses: Array<{ relay: string; success: boolean }> = [];
-
-    await Promise.all(
-      relays.map(
-        (url: string) =>
-          new Promise<void>((resolve) => {
-            const socket = new WebSocket(url);
-            const timeout = setTimeout(() => {
-              statuses.push({ relay: url, success: false });
-              socket.close();
-              resolve();
-            }, 5000);
-            socket.on("open", () => socket.send(JSON.stringify(["EVENT", opts.event])));
-            socket.on("message", (data: any) => {
-              const msg = JSON.parse(data.toString());
-              if (msg[0] === "OK") {
-                statuses.push({ relay: url, success: msg[2] === true });
-                clearTimeout(timeout);
-                socket.close();
-                resolve();
-              }
-            });
-            socket.on("error", () => {
-              statuses.push({ relay: url, success: false });
-              clearTimeout(timeout);
-              resolve();
-            });
-          }),
-      ),
-    );
-
-    return {
-      eventId: (opts.event as any).id ?? "",
-      statuses,
-    };
-  }
-
-  /** Fetch Nostr kind 0 profile for a pubkey */
-  async getProfile(pubkey: string): Promise<{
-    pubkey: string;
-    name?: string | null;
-    picture?: string | null;
-    about?: string | null;
-    nip05?: string | null;
-    website?: string | null;
-  } | null> {
-    const adapter = this.getAdapter("standard") as StandardAdapter;
-    return adapter.getProfile(pubkey);
-  }
-
-  close(): void {
-    for (const adapter of this.#adapters.values()) {
-      adapter.close();
-    }
-    this.#adapters.clear();
-  }
-
-  #toComment(
-    event: NostrEvent,
-    target: string,
-    targetType: string,
-    source: "standard" | "buzz",
-  ): NostrComment {
-    return {
-      id: event.id,
-      pubkey: event.pubkey,
-      content: event.content,
-      target,
-      targetType,
-      nearAccountId: event.tags.find((t) => t[0] === "near_account")?.[1],
-      parentEventId: event.tags.find((t) => t[0] === "e" && t[3] === "reply")?.[1],
-      createdAt: event.created_at,
-      tags: event.tags,
-      source,
-    };
-  }
+  }) => Effect.Effect<NostrEvent[], never>;
+  readonly rawPublish: (opts: {
+    event: NostrEvent;
+    relays?: string[];
+  }) => Effect.Effect<PublishResult, never>;
+  readonly getProfile: (pubkey: string) => Effect.Effect<NostrProfile | null, never>;
+  readonly hasAdapter: (adapterType: string) => Effect.Effect<boolean, never>;
 }
+
+export class NostrCommentService extends Context.Tag("nostr/NostrCommentService")<
+  NostrCommentService,
+  NostrCommentServiceShape
+>() {}
+
+const toComment = (
+  event: NostrEvent,
+  target: string,
+  targetType: string,
+  source: "standard" | "buzz",
+): NostrComment => ({
+  id: event.id,
+  pubkey: event.pubkey,
+  content: event.content,
+  target,
+  targetType,
+  nearAccountId: event.tags.find((t) => t[0] === "near_account")?.[1],
+  parentEventId: event.tags.find((t) => t[0] === "e" && t[3] === "reply")?.[1],
+  createdAt: event.created_at,
+  tags: event.tags,
+  source,
+});
+
+const publishToRelays = (
+  event: NostrEvent,
+  relays: readonly string[],
+): Effect.Effect<{ relay: string; success: boolean }[], never> =>
+  Effect.scoped(
+    Effect.forEach(
+      relays,
+      (relay) =>
+        Effect.acquireRelease(
+          Effect.sync(() => new WebSocket(relay)),
+          (socket) =>
+            Effect.sync(() => {
+              if (
+                socket.readyState === WebSocket.OPEN ||
+                socket.readyState === WebSocket.CONNECTING
+              ) {
+                socket.close();
+              }
+            }),
+        ).pipe(
+          Effect.flatMap((socket) =>
+            Effect.async<{ relay: string; success: boolean }>((resume) => {
+              const timer = setTimeout(() => {
+                resume(Effect.succeed({ relay, success: false }));
+              }, PUBLISH_TIMEOUT_MS);
+
+              socket.on("open", () => {
+                socket.send(JSON.stringify(["EVENT", event]));
+              });
+              socket.on("message", (data: WebSocket.RawData) => {
+                try {
+                  const msg = JSON.parse(data.toString()) as unknown[];
+                  if (msg[0] === "OK" && msg[1] === event.id) {
+                    clearTimeout(timer);
+                    resume(Effect.succeed({ relay, success: msg[2] === true }));
+                  }
+                } catch {
+                  clearTimeout(timer);
+                  resume(Effect.succeed({ relay, success: false }));
+                }
+              });
+              socket.on("error", () => {
+                clearTimeout(timer);
+                resume(Effect.succeed({ relay, success: false }));
+              });
+            }),
+          ),
+        ),
+      { concurrency: "unbounded", discard: false },
+    ),
+  );
+
+const verifyKvAccount = (nearAccountId: string): Effect.Effect<boolean, never> =>
+  Effect.tryPromise({
+    try: async () => {
+      const res = await fetch(
+        `${KV_API}/v0/latest/contextual.near/${nearAccountId}/nostr/${nearAccountId}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: "{}",
+        },
+      );
+      if (!res.ok) return false;
+      const data = (await res.json()) as {
+        entries?: Array<{ value?: unknown }>;
+      };
+      return Boolean(data?.entries?.[0]?.value);
+    },
+    catch: () => false as boolean,
+  }).pipe(Effect.orElseSucceed(() => false));
+
+export const NostrCommentServiceLive = Layer.scoped(
+  NostrCommentService,
+  Effect.acquireRelease(
+    Effect.gen(function* () {
+      const cfg = yield* NostrConfigTag;
+
+      const adapters = new Map<string, RelayAdapter>();
+      if (cfg.standardRelays.length) {
+        adapters.set("standard", new StandardAdapter(cfg.standardRelays));
+      }
+      if (cfg.buzzRelays.length && cfg.buzzSecretKey) {
+        adapters.set(
+          "buzz",
+          new BuzzAdapter({
+            relays: cfg.buzzRelays,
+            secretKey: cfg.buzzSecretKey,
+            resolveChannel: (target: string) =>
+              createHash("sha256").update(target).digest("hex").slice(0, 16),
+          }),
+        );
+      }
+
+      const getAdapter = (type: string): RelayAdapter => {
+        const adapter = adapters.get(type);
+        if (!adapter) throw new Error(`Adapter not configured: ${type}`);
+        return adapter;
+      };
+
+      const listComments: NostrCommentServiceShape["listComments"] = (opts) =>
+        Effect.gen(function* () {
+          const adapter = getAdapter(opts.adapterType);
+          const queried = yield* Effect.tryPromise({
+            try: () =>
+              adapter.query({
+                target: opts.target,
+                targetType: opts.targetType,
+                clientName: "near-nostr-sdk",
+                limit: opts.limit,
+                since: opts.since,
+              }),
+            catch: () => ({ events: [] }) as { events: NostrEvent[] },
+          }).pipe(Effect.orElseSucceed(() => ({ events: [] }) as { events: NostrEvent[] }));
+
+          let filtered = queried.events.map((e: NostrEvent) =>
+            toComment(e, opts.target, opts.targetType, opts.adapterType as "standard" | "buzz"),
+          );
+
+          if (opts.requireBound) {
+            filtered = filtered.filter((c: NostrComment) => c.nearAccountId);
+          }
+          if (opts.requireVerified) {
+            const accounts = [
+              ...new Set(
+                filtered
+                  .filter((c: NostrComment) => c.nearAccountId)
+                  .map((c: NostrComment) => c.nearAccountId!),
+              ),
+            ];
+            const BATCH = 5;
+            const verified = new Set<string>();
+            for (let i = 0; i < accounts.length; i += BATCH) {
+              const batch = accounts.slice(i, i + BATCH);
+              const results = yield* Effect.forEach(batch, (acc: string) => verifyKvAccount(acc), {
+                concurrency: BATCH,
+                discard: false,
+              });
+              results.forEach((ok: boolean, idx: number) => {
+                if (ok) verified.add(batch[idx]!);
+              });
+            }
+            filtered = filtered.filter(
+              (c: NostrComment) => c.nearAccountId && verified.has(c.nearAccountId),
+            );
+          }
+          if (opts.enrich) {
+            const standard = getAdapter("standard") as StandardAdapter;
+            const pubkeys = [...new Set(filtered.map((c: NostrComment) => c.pubkey))];
+            const BATCH = 5;
+            const profileMap = new Map<string, NostrProfile>();
+            for (let i = 0; i < pubkeys.length; i += BATCH) {
+              const batch = pubkeys.slice(i, i + BATCH);
+              const profiles = yield* Effect.forEach(
+                batch,
+                (pk: string) =>
+                  Effect.tryPromise({
+                    try: () => standard.getProfile(pk),
+                    catch: () => null as NostrProfile | null,
+                  }).pipe(Effect.orElseSucceed(() => null)),
+                { concurrency: BATCH, discard: false },
+              );
+              profiles.forEach((profile: NostrProfile | null, idx: number) => {
+                if (profile) profileMap.set(batch[idx]!, profile);
+              });
+            }
+            for (const c of filtered) {
+              const p = profileMap.get(c.pubkey);
+              if (p) c.profile = p;
+            }
+          }
+          return filtered;
+        });
+
+      const publishSigned: NostrCommentServiceShape["publishSigned"] = (opts) =>
+        Effect.gen(function* () {
+          const adapter = getAdapter(opts.adapterType);
+          const relays = (adapter as { relays?: string[] }).relays ?? DEFAULT_RELAY_FALLBACKS;
+          const statuses = yield* publishToRelays(opts.event, relays);
+          return { eventId: opts.event.id ?? "", statuses };
+        });
+
+      const listChannels: NostrCommentServiceShape["listChannels"] = (adapterType) =>
+        Effect.gen(function* () {
+          const type = adapterType ?? "buzz";
+          const adapter = getAdapter(type);
+          if (!(adapter instanceof BuzzAdapter)) return [] as ChannelInfo[];
+          const events = yield* Effect.tryPromise({
+            try: () => adapter.listChannels(),
+            catch: () => [] as NostrEvent[],
+          }).pipe(Effect.orElseSucceed(() => [] as NostrEvent[]));
+          return events.map((e: NostrEvent) => {
+            const id = e.tags.find((t) => t[0] === "d")?.[1];
+            const name = e.tags.find((t) => t[0] === "name")?.[1];
+            return { id: id ?? e.id, name: name ?? null };
+          });
+        });
+
+      const rawQuery: NostrCommentServiceShape["rawQuery"] = (opts) => {
+        const standard = getAdapter("standard") as StandardAdapter;
+        return Effect.tryPromise({
+          try: () => standard.queryRaw(opts.filter, opts.relays),
+          catch: () => [] as NostrEvent[],
+        }).pipe(Effect.orElseSucceed(() => [] as NostrEvent[]));
+      };
+
+      const rawPublish: NostrCommentServiceShape["rawPublish"] = (opts) =>
+        Effect.gen(function* () {
+          const relays = opts.relays ?? DEFAULT_RELAY_FALLBACKS;
+          const statuses = yield* publishToRelays(opts.event, relays);
+          return { eventId: opts.event.id ?? "", statuses };
+        });
+
+      const getProfile: NostrCommentServiceShape["getProfile"] = (pubkey) => {
+        const standard = getAdapter("standard") as StandardAdapter;
+        return Effect.tryPromise({
+          try: () => standard.getProfile(pubkey),
+          catch: () => null as NostrProfile | null,
+        }).pipe(Effect.orElseSucceed(() => null));
+      };
+
+      const hasAdapter: NostrCommentServiceShape["hasAdapter"] = (adapterType) =>
+        Effect.succeed(adapters.has(adapterType));
+
+      return Object.assign(
+        {
+          listComments,
+          publishSigned,
+          listChannels,
+          rawQuery,
+          rawPublish,
+          getProfile,
+          hasAdapter,
+        },
+        {
+          __close: (): void => {
+            for (const a of adapters.values()) a.close();
+            adapters.clear();
+          },
+        },
+      );
+    }),
+    (svc) => Effect.sync(() => (svc as { __close: () => void }).__close()),
+  ),
+);
