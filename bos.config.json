@@ -30,14 +30,16 @@
     }
   },
   "plugins": {
-    "nostr": {
-      "development": "local:plugins/nostr",
-      "dependsOn": [
-        "auth"
-      ],
-      "secrets": [],
-      "production": "https://elliot-braem-7739-every-plugin-nostr-nostr-nearbu-a240acca3-ze.zephyrcloud.app",
-      "integrity": "sha384-HrNENKE9M63lvwNYe0QfLjsLqS4lPKcu+UL8cITIo511lUEMOKyRWdxANl+URnP3"
-    }
+        "nostr": {
+            "development": "local:plugins/nostr",
+            "dependsOn": [
+                "auth"
+            ],
+            "secrets": [
+                "BUZZ_NSEC"
+            ],
+            "production": "https://elliot-braem-7739-every-plugin-nostr-nostr-nearbu-a240acca3-ze.zephyrcloud.app",
+            "integrity": "sha384-HrNENKE9M63lvwNYe0QfLjsLqS4lPKcu+UL8cITIo511lUEMOKyRWdxANl+URnP3"
+        }
   }
 }

@@ -7,7 +7,6 @@ const CFG: NostrResolvedConfig = {
   relays: [],
   clientName: "test",
   kvApiUrl: "https://kv.test",
-  nearRpc: "https://rpc.test",
   bindingContract: "contextual.near",
   standardRelays: [],
   buzzRelays: [],

@@ -10,7 +10,7 @@ import type { NostrFilter } from "./nostr-core/types";
 import type { AuthContext } from "./lib/auth";
 import { createAuthMiddleware } from "./lib/auth";
 import { ContextSchema, runEffect } from "./lib/context";
-import { NostrConfigLive, resolveNostrConfig } from "./lib/nostr-config";
+import { NostrConfigLive, NostrSecretsSchema, NostrVariablesSchema, resolveNostrConfig } from "./lib/nostr-config";
 import type { PluginsClient } from "./lib/plugins-client.gen";
 import {
   NostrCoreLive,
@@ -26,45 +26,9 @@ type BindingServiceInstance = typeof BindingService.Service;
 type NostrCommentServiceInstance = typeof NostrCommentService.Service;
 
 export default createPlugin.withPlugins<PluginsClient>()({
-  variables: z.object({
-    relays: z
-      .array(z.string())
-      .default(["wss://relay.damus.io", "wss://nos.lol", "wss://relay.primal.net"])
-      .describe("Default Nostr relay URLs"),
-    clientName: z
-      .string()
-      .default("nostr.nearbuilders.org")
-      .describe("Client identifier tag attached to each published event"),
-    STANDARD_RELAYS: z
-      .string()
-      .default("wss://nos.lol,wss://relay.damus.io,wss://relay.primal.net")
-      .describe("Comma-separated standard Nostr relays for V1 parity routes"),
-    BUZZ_RELAYS: z
-      .string()
-      .default("wss://nearbuilders.communities.buzz.xyz")
-      .describe("Comma-separated Buzz relay URLs"),
-    BUZZ_NSEC: z
-      .string()
-      .optional()
-      .default("")
-      .describe(
-        "nsec/hex key for Buzz adapter NIP-42 relay auth (server identity only, never signs user events)",
-      ),
-    KV_API_URL: z
-      .string()
-      .default("https://kv.main.fastnear.com")
-      .describe("FastNear KV API URL for bindings"),
-    BINDING_CONTRACT: z
-      .string()
-      .default("contextual.near")
-      .describe("FastNear KV binding contract account"),
-    CHALLENGE_EXPIRY_SECONDS: z.coerce
-      .number()
-      .default(300)
-      .describe("Binding challenge expiry in seconds"),
-  }),
+  variables: NostrVariablesSchema,
 
-  secrets: z.object({}),
+  secrets: NostrSecretsSchema,
 
   context: ContextSchema,
 
@@ -72,7 +36,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
   initialize: (config, _plugins, tools) =>
     Effect.gen(function* () {
-      const configLayer = NostrConfigLive(resolveNostrConfig(config.variables));
+      const configLayer = NostrConfigLive(resolveNostrConfig(config.variables, config.secrets));
 
       const core = yield* tools.buildService(
         NostrCoreService,
