@@ -149,16 +149,19 @@ export default createPlugin.withPlugins<PluginsClient>()({
         ).then((result) => ({ data: result, meta: { count: result.length } })),
       ),
 
-      createComment: builder.createComment.handler(({ input }) =>
-        runEffect(
-          comments.publishSigned({
-            event: input.event,
-            target: input.target,
-            targetType: input.targetType,
-            adapterType: input.adapterType ?? "standard",
-          }),
+      createComment: builder.createComment
+        .use(mw.requireAuth)
+        .use(requireNearAccount)
+        .handler(({ input }) =>
+          runEffect(
+            comments.publishSigned({
+              event: input.event,
+              target: input.target,
+              targetType: input.targetType,
+              adapterType: input.adapterType ?? "standard",
+            }),
+          ),
         ),
-      ),
 
       listChannels: builder.listChannels.handler(() =>
         runEffect(comments.listChannels("buzz")).then((data) => ({ data })),
@@ -182,11 +185,13 @@ export default createPlugin.withPlugins<PluginsClient>()({
         }));
       }),
 
-      publishEvent: builder.publishEvent.handler(({ input }) =>
-        runEffect(comments.rawPublish({ event: input.event, relays: input.relays })).then(
-          (result) => ({ eventId: result.eventId, statuses: result.statuses }),
+      publishEvent: builder.publishEvent
+        .use(mw.requireAuth)
+        .handler(({ input }) =>
+          runEffect(comments.rawPublish({ event: input.event, relays: input.relays })).then(
+            (result) => ({ eventId: result.eventId, statuses: result.statuses }),
+          ),
         ),
-      ),
 
       getProfile: builder.getProfile.handler(({ input }) =>
         runEffect(comments.getProfile(input.pubkey)),
