@@ -1,10 +1,15 @@
-import { createHash } from "node:crypto";
-import { Context, Effect, Layer } from "every-plugin/effect";
+import { Context, Effect, Layer, Option } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import { readKvBindingEntry } from "../lib/fastnear-kv";
+import type { NostrResolvedConfig } from "../lib/nostr-config";
 import { NostrConfigTag } from "../lib/nostr-config";
 import type { ChannelInfo, NostrComment, NostrProfile, PublishResult } from "../lib/schemas";
-import { BuzzAdapter, StandardAdapter, StandardAdapterService } from "../nostr-core/adapters";
+import {
+  BuzzAdapter,
+  BuzzAdapterService,
+  type StandardAdapter,
+  StandardAdapterService,
+} from "../nostr-core/adapters";
 import type { NostrEvent, NostrFilter } from "../nostr-core/types";
 import { findNearTargetTag, nearTargetKey } from "../nostr-core/types";
 
@@ -27,7 +32,9 @@ export interface NostrCommentServiceShape {
     targetType: string;
     adapterType: AdapterType;
   }) => Effect.Effect<PublishResult, ORPCError<"BAD_REQUEST", unknown>>;
-  readonly listChannels: (adapterType?: AdapterType) => Effect.Effect<ChannelInfo[], never>;
+  readonly listChannels: (
+    adapterType?: AdapterType,
+  ) => Effect.Effect<ChannelInfo[], ORPCError<"BAD_REQUEST", unknown>>;
   readonly rawQuery: (opts: {
     filter: NostrFilter;
     relays?: string[];
@@ -50,7 +57,7 @@ const badRequest = (message: string): ORPCError<"BAD_REQUEST", unknown> =>
 /**
  * Reject a client-signed comment whose `near_target` tag does not match
  * the composite of (targetType, target) the request claims. Without this,
- * callers can publish events with tags that don't match the request body —
+ * callers can publish events with tags that don't match the request body --
  * silently unfetchable, polluting relay indexes with miscategorized events.
  * Returns an ORPCError so the caller can short-circuit before publishing.
  */
@@ -95,41 +102,42 @@ const toComment = (
 const emptyQueryResult: NostrEvent[] = [];
 const emptyProfile: NostrProfile | null = null;
 
+/**
+ * Read paths swallow the underlying error but log it on WARNING so the
+ * fail-soft empty result is not silent. Mirrors the pattern used in
+ * BindingService.readKv and .readProfile -- previous code in this file
+ * had a tryPromise catch + orElseSucceed double-fallback which was
+ * removed in this commit.
+ */
+const catchAllEmpty =
+  <T>(fallback: T, label: string) =>
+  (error: unknown) =>
+    Effect.gen(function* () {
+      yield* Effect.logWarning(`[Nostr] ${label} failed`, { error: String(error) });
+      return fallback;
+    });
+
 export const NostrCommentServiceLive = Layer.scoped(
   NostrCommentService,
   Effect.gen(function* () {
-    const cfg = yield* NostrConfigTag;
+    const cfg: NostrResolvedConfig = yield* NostrConfigTag;
     const standard = yield* StandardAdapterService;
+    const buzzOption = yield* BuzzAdapterService;
 
-    yield* Effect.addFinalizer(() =>
-      Effect.sync(() => {
-        if (cfg.buzzRelays.length && cfg.buzzSecretKey) {
-          new BuzzAdapter({
-            relays: cfg.buzzRelays,
-            secretKey: cfg.buzzSecretKey,
-            resolveChannel: (target: string) =>
-              createHash("sha256").update(target).digest("hex").slice(0, 16),
-          }).close();
-        }
-      }),
-    );
-
-    const getAdapter = (type: AdapterType): StandardAdapter | BuzzAdapter => {
-      if (type === "standard") return standard;
-      if (!cfg.buzzRelays.length || !cfg.buzzSecretKey) {
-        throw badRequest(`Adapter 'buzz' is not configured`);
+    const getAdapter = (
+      type: AdapterType,
+    ): Effect.Effect<StandardAdapter | BuzzAdapter, ORPCError<"BAD_REQUEST", unknown>> => {
+      if (type === "buzz") {
+        return Option.isNone(buzzOption)
+          ? Effect.fail(badRequest(`Adapter 'buzz' is not configured`))
+          : Effect.succeed(buzzOption.value);
       }
-      return new BuzzAdapter({
-        relays: cfg.buzzRelays,
-        secretKey: cfg.buzzSecretKey,
-        resolveChannel: (target: string) =>
-          createHash("sha256").update(target).digest("hex").slice(0, 16),
-      });
+      return Effect.succeed(standard);
     };
 
     const listComments: NostrCommentServiceShape["listComments"] = (opts) =>
       Effect.gen(function* () {
-        const adapter = getAdapter(opts.adapterType);
+        const adapter = yield* getAdapter(opts.adapterType);
         const queried = yield* Effect.tryPromise({
           try: () =>
             adapter.query({
@@ -139,8 +147,8 @@ export const NostrCommentServiceLive = Layer.scoped(
               limit: opts.limit,
               since: opts.since,
             }),
-          catch: () => ({ events: [] }) as { events: NostrEvent[] },
-        }).pipe(Effect.orElseSucceed(() => ({ events: [] }) as { events: NostrEvent[] }));
+          catch: (e: unknown) => e,
+        }).pipe(Effect.catchAll(catchAllEmpty({ events: [] }, "adapter.query")));
 
         let filtered = queried.events.map((e) =>
           toComment(e, opts.target, opts.targetType, opts.adapterType),
@@ -168,8 +176,10 @@ export const NostrCommentServiceLive = Layer.scoped(
             (pk) =>
               Effect.tryPromise({
                 try: () => standard.getProfile(pk),
-                catch: () => null as NostrProfile | null,
-              }).pipe(Effect.orElseSucceed(() => null)),
+                catch: (e: unknown) => e,
+              }).pipe(
+                Effect.catchAll(catchAllEmpty(null as NostrProfile | null, "standard.getProfile")),
+              ),
             { concurrency: 5 },
           );
           const profileMap = new Map(pubkeys.map((pk, i) => [pk, profiles[i]] as const));
@@ -191,12 +201,7 @@ export const NostrCommentServiceLive = Layer.scoped(
         if (validationError) {
           return yield* Effect.fail(validationError);
         }
-        const adapter = getAdapter(opts.adapterType);
-        if (!(adapter instanceof BuzzAdapter) && !(adapter instanceof StandardAdapter)) {
-          return yield* Effect.fail(
-            badRequest(`Adapter not supported for publish: ${opts.adapterType}`),
-          );
-        }
+        const adapter = yield* getAdapter(opts.adapterType);
         const result = yield* Effect.tryPromise({
           try: () => adapter.publishSigned(opts.event),
           catch: (e: unknown) =>
@@ -215,12 +220,12 @@ export const NostrCommentServiceLive = Layer.scoped(
     const listChannels: NostrCommentServiceShape["listChannels"] = (adapterType) =>
       Effect.gen(function* () {
         const type: AdapterType = adapterType ?? "buzz";
-        const adapter = getAdapter(type);
+        const adapter = yield* getAdapter(type);
         if (!(adapter instanceof BuzzAdapter)) return [];
         const events = yield* Effect.tryPromise({
           try: () => adapter.listChannels(),
-          catch: () => [] as NostrEvent[],
-        }).pipe(Effect.orElseSucceed(() => [] as NostrEvent[]));
+          catch: (e: unknown) => e,
+        }).pipe(Effect.catchAll(catchAllEmpty([] as NostrEvent[], "adapter.listChannels")));
         return events.map((e) => {
           const id = e.tags.find((t) => t[0] === "d")?.[1];
           const name = e.tags.find((t) => t[0] === "name")?.[1];
@@ -231,8 +236,8 @@ export const NostrCommentServiceLive = Layer.scoped(
     const rawQuery: NostrCommentServiceShape["rawQuery"] = (opts) =>
       Effect.tryPromise({
         try: () => standard.queryRaw(opts.filter, opts.relays),
-        catch: () => emptyQueryResult,
-      }).pipe(Effect.catchAll(() => Effect.succeed(emptyQueryResult)));
+        catch: (e: unknown) => e,
+      }).pipe(Effect.catchAll(catchAllEmpty(emptyQueryResult, "standard.queryRaw")));
 
     const rawPublish: NostrCommentServiceShape["rawPublish"] = (opts) =>
       Effect.gen(function* () {
@@ -254,8 +259,18 @@ export const NostrCommentServiceLive = Layer.scoped(
     const getProfile: NostrCommentServiceShape["getProfile"] = (pubkey) =>
       Effect.tryPromise({
         try: () => standard.getProfile(pubkey),
-        catch: () => emptyProfile,
-      }).pipe(Effect.catchAll(() => Effect.succeed(emptyProfile)));
+        catch: (e: unknown) => e,
+      }).pipe(
+        Effect.catchAll((error) =>
+          Effect.gen(function* () {
+            yield* Effect.logWarning("[Nostr] standard.getProfile failed", {
+              pubkey,
+              error: String(error),
+            });
+            return emptyProfile;
+          }),
+        ),
+      );
 
     return {
       listComments,

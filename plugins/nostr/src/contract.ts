@@ -191,17 +191,20 @@ export const contract = oc.router({
     .output(PublishResultSchema)
     .errors({ BAD_REQUEST }),
 
-  listChannels: oc.route({ method: "GET", path: "/v1/buzz/channels" }).output(
-    z.object({
-      data: z.array(
-        z.object({
-          id: z.string(),
-          name: z.string().optional().nullable(),
-          members: z.number().int().optional().nullable(),
-        }),
-      ),
-    }),
-  ),
+  listChannels: oc
+    .route({ method: "GET", path: "/v1/buzz/channels" })
+    .errors({ BAD_REQUEST })
+    .output(
+      z.object({
+        data: z.array(
+          z.object({
+            id: z.string(),
+            name: z.string().optional().nullable(),
+            members: z.number().int().optional().nullable(),
+          }),
+        ),
+      }),
+    ),
 
   queryEvents: oc
     .route({ method: "POST", path: "/v1/nostr/query" })

@@ -13,7 +13,7 @@ import {
   resolveNostrConfig,
 } from "./lib/nostr-config";
 import type { PluginsClient } from "./lib/plugins-client.gen";
-import { StandardAdapterLive } from "./nostr-core/adapters";
+import { BuzzAdapterLive, StandardAdapterLive } from "./nostr-core/adapters";
 import type { NostrFilter } from "./nostr-core/types";
 import { BindingService, BindingServiceLive } from "./services/binding";
 import { deriveNostrPubkey } from "./services/key-derivation";
@@ -41,6 +41,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
       const comments = yield* tools.buildService(
         NostrCommentService,
         NostrCommentServiceLive.pipe(
+          Layer.provide(BuzzAdapterLive),
           Layer.provide(StandardAdapterLive),
           Layer.provide(configLayer),
         ),
