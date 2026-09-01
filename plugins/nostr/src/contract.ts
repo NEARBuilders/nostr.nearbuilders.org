@@ -8,73 +8,7 @@ const Errors = {
   BAD_REQUEST: { status: 400, message: "Bad request" },
 };
 
-export const NearNostrTargetSchema = z.object({
-  type: z.enum(["builder", "project", "scope", "submission", "page"]),
-  id: z.string().min(1),
-  url: z.string().optional(),
-});
-
-export type NostrTargetInput = z.infer<typeof NearNostrTargetSchema>;
-
-export const NostrEventSchema = z.object({
-  id: z.string(),
-  pubkey: z.string(),
-  created_at: z.number(),
-  kind: z.number(),
-  tags: z.array(z.array(z.string())),
-  content: z.string(),
-  sig: z.string(),
-});
-
-export const NearNostrCommentSchema = z.object({
-  eventId: z.string(),
-  pubkey: z.string(),
-  nearAccountId: z.string().optional(),
-  content: z.string(),
-  createdAt: z.number(),
-  parentId: z.string().optional(),
-  target: NearNostrTargetSchema,
-  profile: z
-    .object({
-      name: z.string().optional(),
-      picture: z.string().optional(),
-    })
-    .optional(),
-});
-
-export const NearNostrIdentitySchema = z.object({
-  nearAccountId: z.string(),
-  nostrPubkey: z.string(),
-  profile: z
-    .object({
-      name: z.string().optional(),
-      picture: z.string().optional(),
-      about: z.string().optional(),
-      nip05: z.string().optional(),
-      website: z.string().optional(),
-    })
-    .optional(),
-  relay: z.string().optional(),
-});
-
-export const NostrProfileSchema = z.object({
-  pubkey: z.string(),
-  name: z.string().optional().nullable(),
-  picture: z.string().optional().nullable(),
-  about: z.string().optional().nullable(),
-  nip05: z.string().optional().nullable(),
-  website: z.string().optional().nullable(),
-});
-
-export const NostrBindingSchema = z.object({
-  nearAccountId: z.string(),
-  nostrPubkey: z.string(),
-  relay: z.string().optional(),
-  proofEventId: z.string().optional(),
-  boundAt: z.string().datetime().optional(),
-});
-
-// ── V1 parity schemas (ported verbatim from nearbuilders.org nostr-bindings / nostr-comments, PR #162) ──
+// ── V1 parity schemas (from nearbuilders.org nostr-bindings / nostr-comments) ──
 
 const BindingOutput = z.object({
   npub: z.string(),
@@ -146,7 +80,7 @@ export const contract = oc.router({
     .output(
       z.object({
         pubkey: z.string().describe("Nostr public key (64-char hex)"),
-        hasBinding: z.boolean().describe("Whether a DB binding record exists"),
+        hasBinding: z.boolean().describe("Whether a KV binding exists"),
       }),
     )
     .errors(Errors),
@@ -164,132 +98,6 @@ export const contract = oc.router({
       }),
     ),
 
-  // DEPRECATED: superseded by GET /v1/nostr/profile/{pubkey} (getProfileV1), remove after UIs migrate
-  getProfile: oc
-    .route({
-      method: "GET",
-      path: "/nostr/profile/{pubkey}",
-      summary: "Fetch Nostr kind 0 profile",
-      tags: ["Profiles"],
-    })
-    .input(
-      z.object({
-        pubkey: z.string().describe("64-char hex Nostr public key"),
-      }),
-    )
-    .output(NostrProfileSchema.nullable())
-    .errors(Errors),
-
-  // DEPRECATED: superseded by GET /v1/identity/{nearAccountId} (getIdentityV1), remove after UIs migrate
-  getIdentity: oc
-    .route({
-      method: "GET",
-      path: "/nostr/identity/{nearAccountId}",
-      summary: "Resolve NEAR account to Nostr identity",
-      tags: ["Identity"],
-    })
-    .input(
-      z.object({
-        nearAccountId: z.string().describe("NEAR account ID (e.g. example.near)"),
-      }),
-    )
-    .output(NearNostrIdentitySchema.nullable())
-    .errors(Errors),
-
-  // DEPRECATED: superseded by POST /v1/comments (createComment, client-signed events), remove after UIs migrate
-  publishComment: oc
-    .route({
-      method: "POST",
-      path: "/nostr/comments",
-      summary: "Publish a Nostr comment",
-      description: "Creates and publishes a signed kind 1 comment event to configured relays.",
-      tags: ["Comments"],
-    })
-    .input(
-      z.object({
-        target: NearNostrTargetSchema,
-        content: z.string().min(1).max(64000),
-        parentEventId: z.string().optional(),
-        relays: z.array(z.string()).optional(),
-        adapterType: z.enum(["standard", "buzz"]).optional().default("standard"),
-      }),
-    )
-    .output(
-      z.object({
-        event: NostrEventSchema,
-        statuses: z.record(z.string(), z.boolean()),
-      }),
-    )
-    .errors(Errors),
-
-  // DEPRECATED: superseded by GET /v1/comments (listCommentsV1), remove after UIs migrate
-  listComments: oc
-    .route({
-      method: "GET",
-      path: "/nostr/comments",
-      summary: "List comments for a target",
-      tags: ["Comments"],
-    })
-    .input(
-      z.object({
-        target: NearNostrTargetSchema,
-        limit: z.number().min(1).max(200).default(50),
-        since: z.number().optional(),
-        until: z.number().optional(),
-        relays: z.array(z.string()).optional(),
-        adapterType: z.enum(["standard", "buzz"]).optional().default("standard"),
-        requireBound: z.boolean().optional().default(false),
-      }),
-    )
-    .output(z.array(NearNostrCommentSchema))
-    .errors(Errors),
-
-  // DEPRECATED: superseded by the KV binding flow (POST /v1/binding/challenge → POST /v1/binding/verify → POST /v1/binding/prepare), remove after UIs migrate
-  createBinding: oc
-    .route({
-      method: "POST",
-      path: "/nostr/bindings",
-      summary: "Create a NEAR ↔ Nostr binding",
-      description:
-        "Store a binding between the authenticated NEAR account and a Nostr pubkey in the database.",
-      tags: ["Identity"],
-    })
-    .input(
-      z.object({
-        nostrPubkey: z.string(),
-        relay: z.string().optional(),
-      }),
-    )
-    .output(NostrBindingSchema)
-    .errors(Errors),
-
-  // DEPRECATED: DB-backed bindings are superseded by the FastNear KV flow; no KV unbind route yet, remove after UIs migrate
-  deleteBinding: oc
-    .route({
-      method: "DELETE",
-      path: "/nostr/bindings",
-      summary: "Remove the authenticated NEAR account's Nostr binding",
-      tags: ["Identity"],
-    })
-    .output(z.object({ success: z.literal(true) }))
-    .errors(Errors),
-
-  // DEPRECATED: superseded by GET /v1/binding/{nearAccountId} (getBindingV1, FastNear KV-backed), remove after UIs migrate
-  getBinding: oc
-    .route({
-      method: "GET",
-      path: "/nostr/bindings/{nearAccountId}",
-      summary: "Get a NEAR ↔ Nostr binding",
-      tags: ["Identity"],
-    })
-    .input(
-      z.object({
-        nearAccountId: z.string(),
-      }),
-    )
-    .output(NostrBindingSchema.nullable())
-    .errors(Errors),
-
   ping: oc
     .route({
       method: "GET",
@@ -304,8 +112,7 @@ export const contract = oc.router({
       }),
     ),
 
-  // ── V1 parity routes (mirror nearbuilders.org nostr-bindings + nostr-comments, PR #162) ──
-  // Paths and zod shapes are identical to the nearbuilders.org contracts.
+  // ── V1 parity routes (mirror nearbuilders.org nostr-bindings + nostr-comments) ──
 
   // From nostr-bindings: FastNear KV-backed bindings + challenge/verify
   getBindingV1: oc
