@@ -1,15 +1,11 @@
 import { Context, Effect, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
 import type { NostrProfile } from "../lib/schemas";
+import { readKvBindingEntry, type KvBindingEntry } from "../lib/fastnear-kv";
 import { NostrConfigTag, type NostrResolvedConfig } from "../lib/nostr-config";
 import type { NostrEvent } from "../nostr-core/types";
 
-export interface BindingEntry {
-  npub: string;
-  relay: string;
-  proof: string;
-  bound_at: number;
-}
+export type BindingEntry = KvBindingEntry;
 
 export interface Identity {
   nearAccountId: string;
@@ -72,28 +68,10 @@ export class BindingService extends Context.Tag("nostr/BindingService")<
   BindingServiceShape
 >() {}
 
-const KV_TIMEOUT_MS = 5_000;
-
 const readKv = (
   cfg: NostrResolvedConfig,
   nearAccountId: string,
-): Effect.Effect<BindingEntry | null, never> =>
-  Effect.tryPromise({
-    try: async () => {
-      const url = `${cfg.kvApiUrl}/v0/latest/${cfg.bindingContract}/${nearAccountId}/nostr/${nearAccountId}`;
-      const res = await fetch(url, { signal: AbortSignal.timeout(KV_TIMEOUT_MS) });
-      if (!res.ok || res.status === 404) return null;
-      const data = (await res.json()) as {
-        entries?: Array<{ value?: unknown }>;
-      };
-      const entry = data?.entries?.[0];
-      if (!entry?.value) return null;
-      return typeof entry.value === "string"
-        ? (JSON.parse(entry.value) as BindingEntry)
-        : (entry.value as BindingEntry);
-    },
-    catch: () => null as BindingEntry | null,
-  }).pipe(Effect.orElseSucceed(() => null));
+): Effect.Effect<BindingEntry | null, never> => readKvBindingEntry(cfg, nearAccountId);
 
 const readProfile = (
   relays: string[],
@@ -117,8 +95,8 @@ const readProfile = (
       const parsed = JSON.parse(event.content) as Omit<NostrProfile, "pubkey">;
       return { pubkey, ...parsed };
     },
-    catch: () => null as NostrProfile | null,
-  }).pipe(Effect.orElseSucceed(() => null));
+    catch: () => null,
+  }).pipe(Effect.catchAll(() => Effect.succeed(null)));
 
 const badRequest = (message: string): ORPCError<"BAD_REQUEST", unknown> =>
   new ORPCError("BAD_REQUEST", { message, data: {} });

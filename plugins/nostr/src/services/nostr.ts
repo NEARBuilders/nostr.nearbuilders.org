@@ -7,13 +7,13 @@ import type {
   PublishResult,
   ChannelInfo,
 } from "../lib/schemas";
-import { NostrConfigTag } from "../lib/nostr-config";
+import { readKvBindingEntry } from "../lib/fastnear-kv";
+import { NostrConfigTag, type NostrResolvedConfig } from "../lib/nostr-config";
 import { BuzzAdapter, StandardAdapter } from "../nostr-core/adapters";
 import type { RelayAdapter } from "../nostr-core/adapters/types";
 import type { NostrEvent, NostrFilter } from "../nostr-core/types";
 
 const PUBLISH_TIMEOUT_MS = 5_000;
-const KV_API = "https://kv.main.fastnear.com";
 
 const DEFAULT_RELAY_FALLBACKS = ["wss://nos.lol", "wss://relay.damus.io", "wss://relay.primal.net"];
 
@@ -122,25 +122,8 @@ const publishToRelays = (
     ),
   );
 
-const verifyKvAccount = (nearAccountId: string): Effect.Effect<boolean, never> =>
-  Effect.tryPromise({
-    try: async () => {
-      const res = await fetch(
-        `${KV_API}/v0/latest/contextual.near/${nearAccountId}/nostr/${nearAccountId}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: "{}",
-        },
-      );
-      if (!res.ok) return false;
-      const data = (await res.json()) as {
-        entries?: Array<{ value?: unknown }>;
-      };
-      return Boolean(data?.entries?.[0]?.value);
-    },
-    catch: () => false as boolean,
-  }).pipe(Effect.orElseSucceed(() => false));
+const verifyKvAccount = (cfg: NostrResolvedConfig, nearAccountId: string) =>
+  readKvBindingEntry(cfg, nearAccountId).pipe(Effect.map((e) => e !== null));
 
 export const NostrCommentServiceLive = Layer.scoped(
   NostrCommentService,
@@ -204,7 +187,7 @@ export const NostrCommentServiceLive = Layer.scoped(
             const verified = new Set<string>();
             for (let i = 0; i < accounts.length; i += BATCH) {
               const batch = accounts.slice(i, i + BATCH);
-              const results = yield* Effect.forEach(batch, (acc: string) => verifyKvAccount(acc), {
+              const results = yield* Effect.forEach(batch, (acc: string) => verifyKvAccount(cfg, acc), {
                 concurrency: BATCH,
                 discard: false,
               });
