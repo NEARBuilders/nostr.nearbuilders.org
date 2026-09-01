@@ -4,8 +4,8 @@ import type { NostrSubscription } from "../core";
 import type { NostrEvent, NostrFilter } from "../types";
 import { parseRelayEvent } from "../types";
 import type {
-  PublishAdapterOptions,
   AdapterPublishResult,
+  PublishAdapterOptions,
   QueryAdapterOptions,
   RelayAdapter,
   SubscribeAdapterOptions,
@@ -33,6 +33,10 @@ export class BuzzAdapter implements RelayAdapter {
   #conns = new Map<string, WebSocket>();
   #states = new Map<string, ConnState>();
   #queries = new Map<string, { events: NostrEvent[]; eose: boolean; resolve: () => void }>();
+  #pendingPublishes = new Map<
+    string,
+    { relay: string; resolve: (ok: boolean) => void; timer: ReturnType<typeof setTimeout> }
+  >();
 
   constructor(config: BuzzAdapterConfig) {
     this.relays = config.relays;
@@ -153,7 +157,16 @@ export class BuzzAdapter implements RelayAdapter {
     }
 
     if (t === "OK") {
-      if (msg[2] === true && this.#states.get(relay) === "authing") {
+      const eventId = msg[1] as string;
+      const success = msg[2] === true;
+      const pending = this.#pendingPublishes.get(eventId);
+      if (pending && pending.relay === relay) {
+        clearTimeout(pending.timer);
+        this.#pendingPublishes.delete(eventId);
+        pending.resolve(success);
+        return;
+      }
+      if (success && this.#states.get(relay) === "authing") {
         this.#states.set(relay, "connected");
       }
       return;
@@ -231,15 +244,42 @@ export class BuzzAdapter implements RelayAdapter {
     const relayList = relays ?? this.relays;
     const statuses = new Map<string, boolean>();
     await Promise.allSettled(
-      relayList.map(async (r: string) => {
-        try {
-          await this.#ensureConnected(r);
-          this.#send(r, ["EVENT", event]);
-          statuses.set(r, true);
-        } catch {
-          statuses.set(r, false);
-        }
-      }),
+      relayList.map(
+        (r) =>
+          new Promise<void>((resolve) => {
+            const finalize = (ok: boolean) => {
+              statuses.set(r, ok);
+              resolve();
+            };
+            const timer = setTimeout(() => {
+              this.#pendingPublishes.delete(event.id);
+              finalize(false);
+            }, this.queryTimeoutMs);
+            this.#pendingPublishes.set(event.id, {
+              relay: r,
+              resolve: (ok) => {
+                clearTimeout(timer);
+                finalize(ok);
+              },
+              timer,
+            });
+            this.#ensureConnected(r)
+              .then(() => {
+                try {
+                  this.#send(r, ["EVENT", event]);
+                } catch {
+                  clearTimeout(timer);
+                  this.#pendingPublishes.delete(event.id);
+                  finalize(false);
+                }
+              })
+              .catch(() => {
+                clearTimeout(timer);
+                this.#pendingPublishes.delete(event.id);
+                finalize(false);
+              });
+          }),
+      ),
     );
     return { event, statuses };
   }
@@ -463,14 +503,19 @@ export class BuzzAdapter implements RelayAdapter {
   }
 
   close(): void {
-    for (const [, ws] of this.#conns) {
+    for (const [relay, ws] of this.#conns) {
       try {
         ws.close();
       } catch {
         /* ignore */
       }
-      this.#states.set("disconnected", "disconnected");
+      this.#states.set(relay, "disconnected");
     }
+    for (const pending of this.#pendingPublishes.values()) {
+      clearTimeout(pending.timer);
+      pending.resolve(false);
+    }
+    this.#pendingPublishes.clear();
     this.#conns.clear();
   }
 }

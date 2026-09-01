@@ -1,6 +1,6 @@
 import { Context, Layer } from "every-plugin/effect";
-import { nip19 } from "nostr-tools";
 import { z } from "every-plugin/zod";
+import { nip19 } from "nostr-tools";
 
 const DEFAULT_KV_API = "https://kv.main.fastnear.com";
 const DEFAULT_BINDING_CONTRACT = "contextual.near";
@@ -20,14 +20,8 @@ export const NostrVariablesSchema = z.object({
     .string()
     .default(DEFAULT_STANDARD_RELAYS)
     .describe("Comma-separated standard Nostr relays for V1 parity routes"),
-  BUZZ_RELAYS: z
-    .string()
-    .default(DEFAULT_BUZZ_RELAYS)
-    .describe("Comma-separated Buzz relay URLs"),
-  KV_API_URL: z
-    .string()
-    .default(DEFAULT_KV_API)
-    .describe("FastNear KV API URL for bindings"),
+  BUZZ_RELAYS: z.string().default(DEFAULT_BUZZ_RELAYS).describe("Comma-separated Buzz relay URLs"),
+  KV_API_URL: z.string().default(DEFAULT_KV_API).describe("FastNear KV API URL for bindings"),
   BINDING_CONTRACT: z
     .string()
     .default(DEFAULT_BINDING_CONTRACT)

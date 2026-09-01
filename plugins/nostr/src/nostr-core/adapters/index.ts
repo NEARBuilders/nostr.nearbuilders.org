@@ -1,9 +1,10 @@
 export type { BuzzAdapterConfig } from "./buzz";
 export { BuzzAdapter } from "./buzz";
 export { StandardAdapter } from "./standard";
+export { StandardAdapterLive, StandardAdapterService } from "./standard-service";
 export type {
-  PublishAdapterOptions,
   AdapterPublishResult,
+  PublishAdapterOptions,
   QueryAdapterOptions,
   QueryResult,
   RelayAdapter,

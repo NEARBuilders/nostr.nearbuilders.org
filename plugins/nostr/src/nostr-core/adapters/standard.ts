@@ -4,8 +4,8 @@ import type { NostrProfile } from "../../lib/schemas";
 import type { NostrSubscription } from "../core";
 import type { NostrEvent, NostrFilter } from "../types";
 import type {
-  PublishAdapterOptions,
   AdapterPublishResult,
+  PublishAdapterOptions,
   QueryAdapterOptions,
   RelayAdapter,
   SubscribeAdapterOptions,

@@ -1,8 +1,9 @@
 import { Context, Effect, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
-import type { NostrProfile } from "../lib/schemas";
-import { readKvBindingEntry, type KvBindingEntry } from "../lib/fastnear-kv";
+import { verifyEvent } from "nostr-tools/pure";
+import { type KvBindingEntry, readKvBindingEntry } from "../lib/fastnear-kv";
 import { NostrConfigTag, type NostrResolvedConfig } from "../lib/nostr-config";
+import type { NostrProfile } from "../lib/schemas";
 import type { NostrEvent } from "../nostr-core/types";
 
 export type BindingEntry = KvBindingEntry;
@@ -52,7 +53,7 @@ export interface BindingServiceShape {
   readonly getProfile: (pubkey: string) => Effect.Effect<Identity["profile"] | null, never>;
   readonly createChallenge: (nearAccountId: string) => Effect.Effect<Challenge, never>;
   readonly verifyChallenge: (
-    event: NostrEvent,
+    event: Omit<NostrEvent, "kind">,
     nearAccountId: string,
   ) => Effect.Effect<VerifiedChallenge, ORPCError<"BAD_REQUEST", unknown>>;
   readonly prepareBindingWrite: (params: {
@@ -73,10 +74,7 @@ const readKv = (
   nearAccountId: string,
 ): Effect.Effect<BindingEntry | null, never> => readKvBindingEntry(cfg, nearAccountId);
 
-const readProfile = (
-  relays: string[],
-  pubkey: string,
-): Effect.Effect<NostrProfile | null, never> =>
+const readProfile = (relays: string[], pubkey: string): Effect.Effect<NostrProfile | null, never> =>
   Effect.tryPromise({
     try: async () => {
       const relay = relays[0];
@@ -150,6 +148,10 @@ export const BindingServiceLive = Layer.effect(
 
     const verifyChallenge: BindingServiceShape["verifyChallenge"] = (event, nearAccountId) =>
       Effect.gen(function* () {
+        const kind27235: NostrEvent = { ...event, kind: 27235 };
+        if (!verifyEvent(kind27235)) {
+          return yield* Effect.fail(badRequest("Invalid Nostr event signature"));
+        }
         const challenge = event.content;
         if (!challenge?.startsWith("bind:")) {
           return yield* Effect.fail(badRequest("No binding challenge found in event content"));

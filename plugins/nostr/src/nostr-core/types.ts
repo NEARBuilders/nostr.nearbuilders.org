@@ -1,5 +1,5 @@
-import type { Filter } from "nostr-tools/filter";
 import type { Event } from "nostr-tools/core";
+import type { Filter } from "nostr-tools/filter";
 
 export type NostrEvent = Event;
 export type NostrFilter = Filter;
