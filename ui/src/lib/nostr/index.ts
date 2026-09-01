@@ -1,5 +1,5 @@
-export type { NearNostrBinding } from "./binding";
-export { buildTxArgs, getBinding } from "./binding";
+export type { BindingWriteArgs } from "./bind";
+export { pollBinding, signBindingEvent, submitBindingWrite } from "./bind";
 export type { NostrSession } from "./keys";
 export {
   clearSession,
