@@ -1,8 +1,7 @@
 import { SimplePool } from "nostr-tools/pool";
 import { finalizeEvent, verifyEvent } from "nostr-tools/pure";
 import type { NostrProfile } from "../../lib/schemas";
-import type { NostrSubscription } from "../core";
-import type { NostrEvent, NostrFilter } from "../types";
+import type { NostrEvent, NostrFilter, NostrSubscription } from "../types";
 import { nearTargetKey } from "../types";
 import type {
   AdapterPublishResult,

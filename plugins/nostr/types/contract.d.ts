@@ -1,22 +1,5 @@
 import { z } from "every-plugin/zod";
 export declare const contract: {
-    getPublicKey: import("@orpc/contract").ContractProcedure<import("@orpc/contract").Schema<unknown, unknown>, z.ZodObject<{
-        pubkey: z.ZodString;
-        hasBinding: z.ZodBoolean;
-    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
-        UNAUTHORIZED: {
-            status: number;
-            message: string;
-        };
-        NOT_FOUND: {
-            status: number;
-            message: string;
-        };
-        BAD_REQUEST: {
-            status: number;
-            message: string;
-        };
-    }>>, Record<never, never>>;
     listRelays: import("@orpc/contract").ContractProcedure<import("@orpc/contract").Schema<unknown, unknown>, z.ZodObject<{
         relays: z.ZodArray<z.ZodString>;
     }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, Record<never, never>>, Record<never, never>>;
@@ -247,7 +230,19 @@ export declare const contract: {
             name: z.ZodNullable<z.ZodOptional<z.ZodString>>;
             members: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
         }, z.core.$strip>>;
-    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, Record<never, never>>, Record<never, never>>;
+    }, z.core.$strip>, import("@orpc/contract").MergedErrorMap<Record<never, never>, import("@orpc/contract").MergedErrorMap<Record<never, never>, {
+        BAD_REQUEST: {
+            readonly status: 400;
+            readonly data: z.ZodObject<{
+                invalidFields: z.ZodOptional<z.ZodArray<z.ZodString>>;
+                validationErrors: z.ZodOptional<z.ZodArray<z.ZodObject<{
+                    field: z.ZodString;
+                    message: z.ZodString;
+                    code: z.ZodOptional<z.ZodString>;
+                }, z.core.$strip>>>;
+            }, z.core.$strip>;
+        };
+    }>>, Record<never, never>>;
     queryEvents: import("@orpc/contract").ContractProcedure<z.ZodObject<{
         filter: z.ZodObject<{
             kinds: z.ZodOptional<z.ZodArray<z.ZodNumber>>;

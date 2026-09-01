@@ -11,6 +11,14 @@ export type RelayMessage =
   | ["EOSE", string]
   | ["NOTICE", string];
 
+export interface NostrSubscription {
+  on<K extends "event" | "eose">(
+    type: K,
+    handler: K extends "event" ? (event: NostrEvent) => void : () => void,
+  ): NostrSubscription;
+  close(): void;
+}
+
 export const Kind = {
   METADATA: 0,
   TEXT_NOTE: 1,

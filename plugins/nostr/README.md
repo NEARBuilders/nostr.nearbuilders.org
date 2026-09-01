@@ -6,7 +6,7 @@ A `createPlugin` for the [everything.dev](https://github.com/nearbuilders/everyt
 
 | Route group | Endpoints |
 | --- | --- |
-| NEAR → Nostr identity | `getPublicKey`, `listRelays`, `ping` |
+| Identity & health | `listRelays`, `ping` |
 | FastNear KV binding | `getBinding`, `getIdentity`, `createChallenge`, `verifyBinding`, `prepareBindingWrite` |
 | Relay-backed comments | `listComments`, `createComment`, `listChannels`, `queryEvents`, `publishEvent`, `getProfile` |
 

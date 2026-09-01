@@ -13,10 +13,9 @@ import {
   resolveNostrConfig,
 } from "./lib/nostr-config";
 import type { PluginsClient } from "./lib/plugins-client.gen";
-import { StandardAdapterLive } from "./nostr-core/adapters";
+import { BuzzAdapterLive, StandardAdapterLive } from "./nostr-core/adapters";
 import type { NostrFilter } from "./nostr-core/types";
 import { BindingService, BindingServiceLive } from "./services/binding";
-import { deriveNostrPubkey } from "./services/key-derivation";
 import { NostrCommentService, NostrCommentServiceLive } from "./services/nostr";
 
 export default createPlugin.withPlugins<PluginsClient>()({
@@ -41,6 +40,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
       const comments = yield* tools.buildService(
         NostrCommentService,
         NostrCommentServiceLive.pipe(
+          Layer.provide(BuzzAdapterLive),
           Layer.provide(StandardAdapterLive),
           Layer.provide(configLayer),
         ),
@@ -73,15 +73,6 @@ export default createPlugin.withPlugins<PluginsClient>()({
     ) as DecoratedMiddleware<AuthContext, { nearAccountId: string }, any, any, any, any>;
 
     return {
-      getPublicKey: builder.getPublicKey
-        .use(requireNearAccount)
-        .handler(async ({ context: ctx }) => {
-          const seed = new TextEncoder().encode(ctx.nearAccountId + (ctx.userId ?? ""));
-          const pubkey = deriveNostrPubkey(ctx.nearAccountId, seed);
-          const entry = await runEffect(binding.getBinding(ctx.nearAccountId));
-          return { pubkey, hasBinding: entry !== null };
-        }),
-
       listRelays: builder.listRelays.handler(async () => ({
         relays: services.relays,
       })),
@@ -148,16 +139,19 @@ export default createPlugin.withPlugins<PluginsClient>()({
         ).then((result) => ({ data: result, meta: { count: result.length } })),
       ),
 
-      createComment: builder.createComment.handler(({ input }) =>
-        runEffect(
-          comments.publishSigned({
-            event: input.event,
-            target: input.target,
-            targetType: input.targetType,
-            adapterType: input.adapterType ?? "standard",
-          }),
+      createComment: builder.createComment
+        .use(mw.requireAuth)
+        .use(requireNearAccount)
+        .handler(({ input }) =>
+          runEffect(
+            comments.publishSigned({
+              event: input.event,
+              target: input.target,
+              targetType: input.targetType,
+              adapterType: input.adapterType ?? "standard",
+            }),
+          ),
         ),
-      ),
 
       listChannels: builder.listChannels.handler(() =>
         runEffect(comments.listChannels("buzz")).then((data) => ({ data })),
@@ -181,11 +175,13 @@ export default createPlugin.withPlugins<PluginsClient>()({
         }));
       }),
 
-      publishEvent: builder.publishEvent.handler(({ input }) =>
-        runEffect(comments.rawPublish({ event: input.event, relays: input.relays })).then(
-          (result) => ({ eventId: result.eventId, statuses: result.statuses }),
+      publishEvent: builder.publishEvent
+        .use(mw.requireAuth)
+        .handler(({ input }) =>
+          runEffect(comments.rawPublish({ event: input.event, relays: input.relays })).then(
+            (result) => ({ eventId: result.eventId, statuses: result.statuses }),
+          ),
         ),
-      ),
 
       getProfile: builder.getProfile.handler(({ input }) =>
         runEffect(comments.getProfile(input.pubkey)),

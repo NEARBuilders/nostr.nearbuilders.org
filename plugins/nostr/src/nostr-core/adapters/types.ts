@@ -1,5 +1,4 @@
-import type { NostrSubscription } from "../core";
-import type { NostrEvent } from "../types";
+import type { NostrEvent, NostrSubscription } from "../types";
 
 export type RelayAdapterConfig = {
   type: "standard" | "buzz";
