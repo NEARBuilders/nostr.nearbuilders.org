@@ -6,7 +6,7 @@ export type RelayAdapterConfig = {
   relays: string[];
 };
 
-export type PublishResult = {
+export type AdapterPublishResult = {
   event: NostrEvent;
   statuses: Map<string, boolean>;
 };
@@ -18,9 +18,9 @@ export type QueryResult = {
 export interface RelayAdapter {
   readonly type: "standard" | "buzz";
 
-  publish(opts: PublishAdapterOptions): Promise<PublishResult>;
+  publish(opts: PublishAdapterOptions): Promise<AdapterPublishResult>;
 
-  publishSigned(event: NostrEvent, relays?: string[]): Promise<PublishResult>;
+  publishSigned(event: NostrEvent, relays?: string[]): Promise<AdapterPublishResult>;
 
   query(opts: QueryAdapterOptions): Promise<QueryResult>;
 

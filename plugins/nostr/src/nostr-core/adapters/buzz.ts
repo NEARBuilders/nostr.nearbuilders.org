@@ -5,7 +5,7 @@ import type { NostrEvent, NostrFilter } from "../types";
 import { parseRelayEvent } from "../types";
 import type {
   PublishAdapterOptions,
-  PublishResult,
+  AdapterPublishResult,
   QueryAdapterOptions,
   RelayAdapter,
   SubscribeAdapterOptions,
@@ -184,7 +184,7 @@ export class BuzzAdapter implements RelayAdapter {
     ws.send(JSON.stringify(msg));
   }
 
-  async publish(opts: PublishAdapterOptions): Promise<PublishResult> {
+  async publish(opts: PublishAdapterOptions): Promise<AdapterPublishResult> {
     const relays = opts.relays ?? this.relays;
     const channelId = this.channelFor(opts.target);
     const tags: string[][] = [
@@ -227,7 +227,7 @@ export class BuzzAdapter implements RelayAdapter {
     return { event, statuses };
   }
 
-  async publishSigned(event: NostrEvent, relays?: string[]): Promise<PublishResult> {
+  async publishSigned(event: NostrEvent, relays?: string[]): Promise<AdapterPublishResult> {
     const relayList = relays ?? this.relays;
     const statuses = new Map<string, boolean>();
     await Promise.allSettled(

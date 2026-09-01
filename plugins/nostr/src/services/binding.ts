@@ -1,5 +1,6 @@
 import { Context, Effect, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
+import type { NostrProfile } from "../lib/schemas";
 import { NostrConfigTag, type NostrResolvedConfig } from "../lib/nostr-config";
 import type { NostrEvent } from "../nostr-core/types";
 
@@ -16,13 +17,7 @@ export interface Identity {
   relay: string;
   proof: string;
   boundAt: number;
-  profile?: {
-    name?: string | null;
-    picture?: string | null;
-    about?: string | null;
-    nip05?: string | null;
-    website?: string | null;
-  } | null;
+  profile?: NostrProfile | null;
 }
 
 export interface BindingWriteArgs {
@@ -103,7 +98,7 @@ const readKv = (
 const readProfile = (
   relays: string[],
   pubkey: string,
-): Effect.Effect<Identity["profile"] | null, never> =>
+): Effect.Effect<NostrProfile | null, never> =>
   Effect.tryPromise({
     try: async () => {
       const relay = relays[0];
@@ -119,9 +114,10 @@ const readProfile = (
       if (!line) return null;
       const event = JSON.parse(line) as { content?: string };
       if (!event.content) return null;
-      return JSON.parse(event.content) as Identity["profile"];
+      const parsed = JSON.parse(event.content) as Omit<NostrProfile, "pubkey">;
+      return { pubkey, ...parsed };
     },
-    catch: () => null as Identity["profile"] | null,
+    catch: () => null as NostrProfile | null,
   }).pipe(Effect.orElseSucceed(() => null));
 
 const badRequest = (message: string): ORPCError<"BAD_REQUEST", unknown> =>

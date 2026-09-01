@@ -3,7 +3,7 @@ export { BuzzAdapter } from "./buzz";
 export { StandardAdapter } from "./standard";
 export type {
   PublishAdapterOptions,
-  PublishResult,
+  AdapterPublishResult,
   QueryAdapterOptions,
   QueryResult,
   RelayAdapter,

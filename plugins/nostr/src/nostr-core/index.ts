@@ -4,7 +4,7 @@ export { StandardAdapter } from "./adapters/standard";
 export { StandardAdapterLive, StandardAdapterService } from "./adapters/standard-service";
 export type {
   PublishAdapterOptions,
-  PublishResult,
+  AdapterPublishResult,
   QueryAdapterOptions,
   QueryResult,
   RelayAdapter,

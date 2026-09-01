@@ -1,10 +1,11 @@
 import { SimplePool } from "nostr-tools/pool";
 import { finalizeEvent, verifyEvent } from "nostr-tools/pure";
+import type { NostrProfile } from "../../lib/schemas";
 import type { NostrSubscription } from "../core";
 import type { NostrEvent, NostrFilter } from "../types";
 import type {
   PublishAdapterOptions,
-  PublishResult,
+  AdapterPublishResult,
   QueryAdapterOptions,
   RelayAdapter,
   SubscribeAdapterOptions,
@@ -24,7 +25,7 @@ export class StandardAdapter implements RelayAdapter {
     this.pool = new SimplePool();
   }
 
-  async publish(opts: PublishAdapterOptions): Promise<PublishResult> {
+  async publish(opts: PublishAdapterOptions): Promise<AdapterPublishResult> {
     const tags = this.#buildTags(opts);
     const event = finalizeEvent(
       {
@@ -53,7 +54,7 @@ export class StandardAdapter implements RelayAdapter {
     return { event, statuses };
   }
 
-  async publishSigned(event: NostrEvent, relays?: string[]): Promise<PublishResult> {
+  async publishSigned(event: NostrEvent, relays?: string[]): Promise<AdapterPublishResult> {
     if (!verifyEvent(event)) {
       throw new Error("Invalid Nostr event signature");
     }
@@ -136,14 +137,7 @@ export class StandardAdapter implements RelayAdapter {
     return this.pool.querySync(relayList, filter);
   }
 
-  async getProfile(pubkey: string): Promise<{
-    pubkey: string;
-    name?: string | null;
-    picture?: string | null;
-    about?: string | null;
-    nip05?: string | null;
-    website?: string | null;
-  } | null> {
+  async getProfile(pubkey: string): Promise<NostrProfile | null> {
     try {
       const events = await this.pool.querySync(this.relays, {
         kinds: [0],

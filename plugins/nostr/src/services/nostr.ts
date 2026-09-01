@@ -1,6 +1,12 @@
 import { createHash } from "node:crypto";
 import { Context, Effect, Layer } from "every-plugin/effect";
 import WebSocket from "ws";
+import type {
+  NostrComment,
+  NostrProfile,
+  PublishResult,
+  ChannelInfo,
+} from "../lib/schemas";
 import { NostrConfigTag } from "../lib/nostr-config";
 import { BuzzAdapter, StandardAdapter } from "../nostr-core/adapters";
 import type { RelayAdapter } from "../nostr-core/adapters/types";
@@ -10,40 +16,6 @@ const PUBLISH_TIMEOUT_MS = 5_000;
 const KV_API = "https://kv.main.fastnear.com";
 
 const DEFAULT_RELAY_FALLBACKS = ["wss://nos.lol", "wss://relay.damus.io", "wss://relay.primal.net"];
-
-export type NostrComment = {
-  id: string;
-  pubkey: string;
-  content: string;
-  target: string;
-  targetType: string;
-  nearAccountId?: string | null;
-  parentEventId?: string | null;
-  createdAt: number;
-  tags?: string[][];
-  source: "standard" | "buzz";
-  profile?: NostrProfile | null;
-};
-
-export type PublishResult = {
-  eventId: string;
-  statuses: { relay: string; success: boolean }[];
-};
-
-export type ChannelInfo = {
-  id: string;
-  name?: string | null;
-  members?: number | null;
-};
-
-export type NostrProfile = {
-  pubkey: string;
-  name?: string | null;
-  picture?: string | null;
-  about?: string | null;
-  nip05?: string | null;
-  website?: string | null;
-};
 
 export interface NostrCommentServiceShape {
   readonly listComments: (opts: {
