@@ -1,7 +1,6 @@
-import { DEFAULT_RELAYS } from "./types";
-
 const KV_API = "https://kv.main.fastnear.com";
 const BINDING_CONTRACT = "contextual.near";
+const DEFAULT_RELAY = "wss://relay.damus.io";
 
 export type NearNostrBinding = {
   nearAccountId: string;
@@ -45,7 +44,7 @@ export function buildTxArgs(opts: {
     args: {
       [`nostr/${opts.nearAccountId}`]: JSON.stringify({
         npub: opts.nostrPubkey,
-        relay: opts.relay ?? DEFAULT_RELAYS[0],
+        relay: opts.relay ?? DEFAULT_RELAY,
         proof: opts.proof,
         bound_at: Math.floor(Date.now() / 1000),
       }),
