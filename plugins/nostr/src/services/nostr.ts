@@ -4,7 +4,7 @@ import WebSocket from "ws";
 import { NostrConfigTag } from "../lib/nostr-config";
 import { BuzzAdapter, StandardAdapter } from "../nostr-core/adapters";
 import type { RelayAdapter } from "../nostr-core/adapters/types";
-import type { NostrEvent } from "../nostr-core/types";
+import type { NostrEvent, NostrFilter } from "../nostr-core/types";
 
 const PUBLISH_TIMEOUT_MS = 5_000;
 const KV_API = "https://kv.main.fastnear.com";
@@ -64,7 +64,7 @@ export interface NostrCommentServiceShape {
   }) => Effect.Effect<PublishResult, never>;
   readonly listChannels: (adapterType?: string) => Effect.Effect<ChannelInfo[], never>;
   readonly rawQuery: (opts: {
-    filter: Record<string, unknown>;
+    filter: NostrFilter;
     relays?: string[];
   }) => Effect.Effect<NostrEvent[], never>;
   readonly rawPublish: (opts: {

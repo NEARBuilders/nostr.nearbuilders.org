@@ -6,6 +6,7 @@ import { z } from "every-plugin/zod";
 import { verifyEvent } from "nostr-tools/pure";
 
 import { contract } from "./contract";
+import type { NostrFilter } from "./nostr-core/types";
 import type { AuthContext } from "./lib/auth";
 import { createAuthMiddleware } from "./lib/auth";
 import { ContextSchema, runEffect } from "./lib/context";
@@ -289,7 +290,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
               message: "Standard adapter not configured",
             });
           }
-          const filter: Record<string, unknown> = {};
+          const filter: NostrFilter = {};
           if (input.filter.kinds) filter.kinds = input.filter.kinds;
           if (input.filter.authors) filter.authors = input.filter.authors;
           if (input.filter.ids) filter.ids = input.filter.ids;

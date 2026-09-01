@@ -1,7 +1,8 @@
 import { finalizeEvent, getPublicKey } from "nostr-tools/pure";
 import WebSocket from "ws";
 import type { NostrSubscription } from "../core";
-import type { NostrEvent } from "../types";
+import type { NostrEvent, NostrFilter } from "../types";
+import { parseRelayEvent } from "../types";
 import type {
   PublishAdapterOptions,
   PublishResult,
@@ -161,7 +162,8 @@ export class BuzzAdapter implements RelayAdapter {
     if (t === "EVENT") {
       const subId = msg[1] as string;
       const q = this.#queries.get(subId);
-      if (q && !q.eose) q.events.push(msg[2] as unknown as NostrEvent);
+      const event = parseRelayEvent(msg[2]);
+      if (q && event && !q.eose) q.events.push(event);
       return;
     }
 
@@ -222,7 +224,7 @@ export class BuzzAdapter implements RelayAdapter {
       }),
     );
 
-    return { event: event as unknown as NostrEvent, statuses };
+    return { event, statuses };
   }
 
   async publishSigned(event: NostrEvent, relays?: string[]): Promise<PublishResult> {
@@ -256,7 +258,7 @@ export class BuzzAdapter implements RelayAdapter {
         }
 
         const subId = `q-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-        const filter: Record<string, unknown> = {
+        const filter: NostrFilter = {
           kinds: [9],
           "#h": [channelId],
           limit: opts.limit ?? 100,
@@ -318,7 +320,8 @@ export class BuzzAdapter implements RelayAdapter {
               return;
             }
             if (msg[0] === "EVENT" && msg[1] === subId) {
-              if (!closed && eventCb) eventCb(msg[2] as unknown as NostrEvent);
+              const event = parseRelayEvent(msg[2]);
+              if (!closed && eventCb && event) eventCb(event);
               return;
             }
             if (msg[0] === "EOSE" && msg[1] === subId) {
@@ -431,7 +434,7 @@ export class BuzzAdapter implements RelayAdapter {
       }),
     );
 
-    return event as unknown as NostrEvent;
+    return event;
   }
 
   async joinChannel(opts: { target: string; relays?: string[] }): Promise<void> {
