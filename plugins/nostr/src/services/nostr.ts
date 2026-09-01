@@ -6,6 +6,7 @@ import { NostrConfigTag } from "../lib/nostr-config";
 import type { ChannelInfo, NostrComment, NostrProfile, PublishResult } from "../lib/schemas";
 import { BuzzAdapter, StandardAdapter, StandardAdapterService } from "../nostr-core/adapters";
 import type { NostrEvent, NostrFilter } from "../nostr-core/types";
+import { findNearTargetTag, nearTargetKey } from "../nostr-core/types";
 
 type AdapterType = "standard" | "buzz";
 
@@ -45,6 +46,33 @@ export class NostrCommentService extends Context.Tag("nostr/NostrCommentService"
 
 const badRequest = (message: string): ORPCError<"BAD_REQUEST", unknown> =>
   new ORPCError("BAD_REQUEST", { message, data: {} });
+
+/**
+ * Reject a client-signed comment whose `near_target` tag does not match
+ * the composite of (targetType, target) the request claims. Without this,
+ * callers can publish events with tags that don't match the request body —
+ * silently unfetchable, polluting relay indexes with miscategorized events.
+ * Returns an ORPCError so the caller can short-circuit before publishing.
+ */
+export const assertCommentTagsMatchRequest = (
+  event: NostrEvent,
+  target: string,
+  targetType: string,
+): ORPCError<"BAD_REQUEST", unknown> | null => {
+  const expected = nearTargetKey(targetType, target);
+  const actual = findNearTargetTag(event);
+  if (actual === undefined) {
+    return badRequest(
+      `Comment event is missing the required 'near_target' tag (expected '${expected}')`,
+    );
+  }
+  if (actual !== expected) {
+    return badRequest(
+      `Comment event's 'near_target' tag ('${actual}') does not match the request ('${expected}')`,
+    );
+  }
+  return null;
+};
 
 const toComment = (
   event: NostrEvent,
@@ -107,7 +135,7 @@ export const NostrCommentServiceLive = Layer.scoped(
             adapter.query({
               target: opts.target,
               targetType: opts.targetType,
-              clientName: "near-nostr-sdk",
+              clientName: cfg.clientName,
               limit: opts.limit,
               since: opts.since,
             }),
@@ -155,6 +183,14 @@ export const NostrCommentServiceLive = Layer.scoped(
 
     const publishSigned: NostrCommentServiceShape["publishSigned"] = (opts) =>
       Effect.gen(function* () {
+        const validationError = assertCommentTagsMatchRequest(
+          opts.event,
+          opts.target,
+          opts.targetType,
+        );
+        if (validationError) {
+          return yield* Effect.fail(validationError);
+        }
         const adapter = getAdapter(opts.adapterType);
         if (!(adapter instanceof BuzzAdapter) && !(adapter instanceof StandardAdapter)) {
           return yield* Effect.fail(

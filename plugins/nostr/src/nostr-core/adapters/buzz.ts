@@ -2,7 +2,7 @@ import { finalizeEvent, getPublicKey } from "nostr-tools/pure";
 import WebSocket from "ws";
 import type { NostrSubscription } from "../core";
 import type { NostrEvent, NostrFilter } from "../types";
-import { parseRelayEvent } from "../types";
+import { nearTargetKey, parseRelayEvent } from "../types";
 import type {
   AdapterPublishResult,
   PublishAdapterOptions,
@@ -215,7 +215,7 @@ export class BuzzAdapter implements RelayAdapter {
     if (opts.targetUrl) {
       tags.push(["r", opts.targetUrl]);
     }
-    tags.push(["near_target", opts.target]);
+    tags.push(["near_target", nearTargetKey(opts.targetType, opts.target)]);
     if (opts.nearAccountId) tags.push(["near_account", opts.nearAccountId]);
     if (opts.extraTags) tags.push(...opts.extraTags);
 

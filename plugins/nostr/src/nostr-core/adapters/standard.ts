@@ -3,6 +3,7 @@ import { finalizeEvent, verifyEvent } from "nostr-tools/pure";
 import type { NostrProfile } from "../../lib/schemas";
 import type { NostrSubscription } from "../core";
 import type { NostrEvent, NostrFilter } from "../types";
+import { nearTargetKey } from "../types";
 import type {
   AdapterPublishResult,
   PublishAdapterOptions,
@@ -85,8 +86,9 @@ export class StandardAdapter implements RelayAdapter {
     if (opts.since) filter.since = opts.since;
 
     const events = await this.pool.querySync(relays, filter);
+    const targetKey = nearTargetKey(opts.targetType, opts.target);
     const filtered = events.filter((e: NostrEvent) =>
-      e.tags.some((t: string[]) => t[0] === "near_target" && t[1] === opts.target),
+      e.tags.some((t: string[]) => t[0] === "near_target" && t[1] === targetKey),
     );
     return { events: filtered };
   }
@@ -96,6 +98,7 @@ export class StandardAdapter implements RelayAdapter {
     let closed = false;
     let eventCb: ((event: NostrEvent) => void) | null = null;
     let eoseCb: (() => void) | null = null;
+    const targetKey = nearTargetKey(opts.targetType, opts.target);
 
     const closer = this.pool.subscribeMany(
       relays,
@@ -104,7 +107,7 @@ export class StandardAdapter implements RelayAdapter {
         onevent: (event: NostrEvent) => {
           if (closed || !eventCb) return;
           const hasTarget = event.tags.some(
-            (t: string[]) => t[0] === "near_target" && t[1] === opts.target,
+            (t: string[]) => t[0] === "near_target" && t[1] === targetKey,
           );
           if (hasTarget) eventCb(event);
         },
@@ -168,7 +171,7 @@ export class StandardAdapter implements RelayAdapter {
       tags.push(["r", opts.targetUrl]);
     }
     tags.push(["client", opts.clientName]);
-    tags.push(["near_target", opts.target]);
+    tags.push(["near_target", nearTargetKey(opts.targetType, opts.target)]);
     if (opts.nearAccountId) {
       tags.push(["near_account", opts.nearAccountId]);
     }
