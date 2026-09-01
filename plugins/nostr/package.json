@@ -19,9 +19,6 @@
   "dependencies": {
     "@orpc/contract": "catalog:",
     "@orpc/server": "catalog:",
-    "drizzle-orm": "catalog:",
-    "pg": "catalog:",
-    "@electric-sql/pglite": "catalog:",
     "nostr-tools": "^2.10.0",
     "ws": "^8.21.2"
   },
@@ -31,28 +28,20 @@
     "@rspack/cli": "catalog:",
     "@rspack/core": "catalog:",
     "@types/node": "catalog:",
-    "@types/pg": "catalog:",
     "@types/ws": "^8.18.1",
-    "@proj-airi/unplugin-drizzle-orm-migrations": "^0.1.4",
     "dotenv": "^17.2.3",
-    "drizzle-kit": "catalog:",
     "everything-dev": "catalog:",
     "every-plugin": "catalog:",
     "vite-tsconfig-paths": "^5.1.4",
-    "vitest": "catalog:",
-    "zephyr-rspack-plugin": "catalog:"
+    "zephyr-rspack-plugin": "catalog:",
+    "vitest": "catalog:"
   },
   "scripts": {
     "build": "bun run build:types && rspack build",
     "build:types": "tsc -p tsconfig.contract.json",
     "deploy": "bun run build:types && DEPLOY=true rspack build",
     "dev": "bun run build:types && rspack serve",
-    "test": "vitest run --passWithNoTests",
-    "test:watch": "vitest",
-    "coverage": "vitest run --coverage",
-    "db:generate": "drizzle-kit generate",
-    "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
   }
 }

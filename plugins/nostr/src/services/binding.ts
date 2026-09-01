@@ -174,7 +174,7 @@ export class BindingService {
   ): { valid: boolean; nostrPubkey: string; proof: string } {
     // Extract challenge from content
     const challenge = event.content;
-    if (!challenge || !challenge.startsWith("bind:")) {
+    if (!challenge?.startsWith("bind:")) {
       throw new Error("No binding challenge found in event content");
     }
 

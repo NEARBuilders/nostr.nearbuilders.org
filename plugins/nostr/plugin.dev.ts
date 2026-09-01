@@ -17,8 +17,6 @@ export default {
       BINDING_CONTRACT: "contextual.near",
       CHALLENGE_EXPIRY_SECONDS: 300,
     },
-    secrets: {
-      NOSTR_DATABASE_URL: process.env.NOSTR_DATABASE_URL || "pglite:.bos/nostr/:memory:",
-    },
+    secrets: {},
   } satisfies PluginConfigInput<typeof Plugin>,
 };
