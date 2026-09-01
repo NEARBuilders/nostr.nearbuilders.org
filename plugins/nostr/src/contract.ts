@@ -1,6 +1,7 @@
 import { BAD_REQUEST, UNAUTHORIZED } from "every-plugin/errors";
 import { oc } from "every-plugin/orpc";
 import { z } from "every-plugin/zod";
+import { NostrCommentSchema, ProfileSchema, PublishResultSchema } from "./lib/schemas";
 
 const Errors = {
   UNAUTHORIZED: { status: 401, message: "Authentication required" },
@@ -23,49 +24,7 @@ const IdentityOutput = z.object({
   relay: z.string(),
   proof: z.string(),
   boundAt: z.number().int(),
-  profile: z
-    .object({
-      name: z.string().optional().nullable(),
-      picture: z.string().optional().nullable(),
-      about: z.string().optional().nullable(),
-      nip05: z.string().optional().nullable(),
-      website: z.string().optional().nullable(),
-    })
-    .optional()
-    .nullable(),
-});
-
-const NostrCommentOutput = z.object({
-  id: z.string(),
-  pubkey: z.string(),
-  content: z.string(),
-  target: z.string(),
-  targetType: z.string(),
-  nearAccountId: z.string().optional().nullable(),
-  parentEventId: z.string().optional().nullable(),
-  createdAt: z.number().int(),
-  tags: z.array(z.array(z.string())).optional(),
-  source: z.enum(["standard", "buzz"]),
-  profile: z
-    .object({
-      name: z.string().optional().nullable(),
-      picture: z.string().optional().nullable(),
-      about: z.string().optional().nullable(),
-      nip05: z.string().optional().nullable(),
-      website: z.string().optional().nullable(),
-    })
-    .optional()
-    .nullable(),
-});
-
-const RelayStatusOutput = z.object({
-  relay: z.string(),
-  success: z.boolean(),
-});
-
-const PublishResultOutput = z.object({
-  eventId: z.string(),
-  statuses: z.array(RelayStatusOutput),
+  profile: ProfileSchema.optional().nullable(),
 });
 
 export const contract = oc.router({
@@ -206,7 +165,7 @@ export const contract = oc.router({
     )
     .output(
       z.object({
-        data: z.array(NostrCommentOutput),
+        data: z.array(NostrCommentSchema),
         meta: z.object({ count: z.number().int() }),
       }),
     )
@@ -230,7 +189,7 @@ export const contract = oc.router({
         adapterType: z.enum(["standard", "buzz"]).optional(),
       }),
     )
-    .output(PublishResultOutput)
+    .output(PublishResultSchema)
     .errors({ BAD_REQUEST }),
 
   listChannels: oc.route({ method: "GET", path: "/v1/buzz/channels" }).output(
@@ -294,24 +253,13 @@ export const contract = oc.router({
         relays: z.array(z.string()).optional(),
       }),
     )
-    .output(PublishResultOutput)
+    .output(PublishResultSchema)
     .errors({ BAD_REQUEST }),
 
   getProfileV1: oc
     .route({ method: "GET", path: "/v1/nostr/profile/{pubkey}" })
     .input(z.object({ pubkey: z.string().min(1) }))
-    .output(
-      z
-        .object({
-          pubkey: z.string(),
-          name: z.string().optional().nullable(),
-          picture: z.string().optional().nullable(),
-          about: z.string().optional().nullable(),
-          nip05: z.string().optional().nullable(),
-          website: z.string().optional().nullable(),
-        })
-        .nullable(),
-    )
+    .output(ProfileSchema.nullable())
     .errors({ BAD_REQUEST }),
 });
 

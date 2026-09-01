@@ -1,30 +1,9 @@
-export type NostrEvent = {
-  id: string;
-  pubkey: string;
-  created_at: number;
-  kind: number;
-  tags: string[][];
-  content: string;
-  sig: string;
-};
+import type { Event } from "nostr-tools/core";
+import type { Filter } from "nostr-tools/filter";
 
+export type NostrEvent = Event;
+export type NostrFilter = Filter;
 export type UnsignedNostrEvent = Omit<NostrEvent, "id" | "sig">;
-
-export type NostrFilter = {
-  ids?: string[];
-  authors?: string[];
-  kinds?: number[];
-  since?: number;
-  until?: number;
-  limit?: number;
-  "#e"?: string[];
-  "#p"?: string[];
-  "#a"?: string[];
-  "#d"?: string[];
-  "#t"?: string[];
-  "#r"?: string[];
-  [key: `#${string}`]: string[] | undefined;
-};
 
 export type RelayMessage =
   | ["EVENT", string, NostrEvent]
@@ -49,3 +28,20 @@ export type ConnectionResult = {
   relay: string;
   message?: string;
 };
+
+export function parseRelayEvent(raw: unknown): NostrEvent | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  if (
+    typeof r.id !== "string" ||
+    typeof r.pubkey !== "string" ||
+    typeof r.content !== "string" ||
+    typeof r.sig !== "string" ||
+    typeof r.created_at !== "number" ||
+    typeof r.kind !== "number" ||
+    !Array.isArray(r.tags)
+  ) {
+    return null;
+  }
+  return raw as NostrEvent;
+}

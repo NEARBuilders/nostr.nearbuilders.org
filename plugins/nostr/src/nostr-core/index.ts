@@ -3,8 +3,8 @@ export { BuzzAdapter } from "./adapters/buzz";
 export { StandardAdapter } from "./adapters/standard";
 export { StandardAdapterLive, StandardAdapterService } from "./adapters/standard-service";
 export type {
+  AdapterPublishResult,
   PublishAdapterOptions,
-  PublishResult,
   QueryAdapterOptions,
   QueryResult,
   RelayAdapter,

@@ -1,5 +1,5 @@
 import { SimplePool } from "nostr-tools/pool";
-import { generateSecretKey, getPublicKey } from "nostr-tools/pure";
+import { generateSecretKey, getPublicKey, verifyEvent } from "nostr-tools/pure";
 import type { NostrEvent, NostrFilter } from "./types";
 
 export type NostrCoreConfig = {
@@ -47,8 +47,11 @@ export class NostrCore {
   }
 
   async publishEvent(opts: PublishOptions): Promise<Map<string, boolean>> {
+    if (!verifyEvent(opts.event)) {
+      throw new Error("Invalid Nostr event signature");
+    }
     const relays = opts.relays ?? this.#relays;
-    const results = this.pool.publish(relays, opts.event as any);
+    const results = this.pool.publish(relays, opts.event);
     const statuses = new Map<string, boolean>();
     await Promise.allSettled(
       results.map(async (p, i) => {
@@ -65,17 +68,19 @@ export class NostrCore {
 
   async queryEvents(opts: QueryOptions): Promise<NostrEvent[]> {
     const relays = opts.relays ?? this.#relays;
-    const events = await this.pool.querySync(relays, opts.filters as any);
-    return events as unknown as NostrEvent[];
+    const filter = Array.isArray(opts.filters) ? opts.filters[0]! : opts.filters;
+    const events = await this.pool.querySync(relays, filter);
+    return events;
   }
 
   subscribe(opts: SubscribeOptions): NostrSubscription {
     const relays = opts.relays ?? this.#relays;
+    const filter = Array.isArray(opts.filters) ? opts.filters[0]! : opts.filters;
     let closed = false;
 
-    const closer = this.pool.subscribeMany(relays, [opts.filters] as any, {
-      onevent: (event: any) => {
-        if (!closed && eventCb) eventCb(event as unknown as NostrEvent);
+    const closer = this.pool.subscribeMany(relays, filter, {
+      onevent: (event: NostrEvent) => {
+        if (!closed && eventCb) eventCb(event);
       },
       oneose: () => {
         if (!closed && eoseCb) eoseCb();

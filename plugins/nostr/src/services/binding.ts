@@ -1,14 +1,12 @@
 import { Context, Effect, Layer } from "every-plugin/effect";
 import { ORPCError } from "every-plugin/orpc";
+import { verifyEvent } from "nostr-tools/pure";
+import { type KvBindingEntry, readKvBindingEntry } from "../lib/fastnear-kv";
 import { NostrConfigTag, type NostrResolvedConfig } from "../lib/nostr-config";
+import type { NostrProfile } from "../lib/schemas";
 import type { NostrEvent } from "../nostr-core/types";
 
-export interface BindingEntry {
-  npub: string;
-  relay: string;
-  proof: string;
-  bound_at: number;
-}
+export type BindingEntry = KvBindingEntry;
 
 export interface Identity {
   nearAccountId: string;
@@ -16,13 +14,7 @@ export interface Identity {
   relay: string;
   proof: string;
   boundAt: number;
-  profile?: {
-    name?: string | null;
-    picture?: string | null;
-    about?: string | null;
-    nip05?: string | null;
-    website?: string | null;
-  } | null;
+  profile?: NostrProfile | null;
 }
 
 export interface BindingWriteArgs {
@@ -61,7 +53,7 @@ export interface BindingServiceShape {
   readonly getProfile: (pubkey: string) => Effect.Effect<Identity["profile"] | null, never>;
   readonly createChallenge: (nearAccountId: string) => Effect.Effect<Challenge, never>;
   readonly verifyChallenge: (
-    event: NostrEvent,
+    event: Omit<NostrEvent, "kind">,
     nearAccountId: string,
   ) => Effect.Effect<VerifiedChallenge, ORPCError<"BAD_REQUEST", unknown>>;
   readonly prepareBindingWrite: (params: {
@@ -77,33 +69,12 @@ export class BindingService extends Context.Tag("nostr/BindingService")<
   BindingServiceShape
 >() {}
 
-const KV_TIMEOUT_MS = 5_000;
-
 const readKv = (
   cfg: NostrResolvedConfig,
   nearAccountId: string,
-): Effect.Effect<BindingEntry | null, never> =>
-  Effect.tryPromise({
-    try: async () => {
-      const url = `${cfg.kvApiUrl}/v0/latest/${cfg.bindingContract}/${nearAccountId}/nostr/${nearAccountId}`;
-      const res = await fetch(url, { signal: AbortSignal.timeout(KV_TIMEOUT_MS) });
-      if (!res.ok || res.status === 404) return null;
-      const data = (await res.json()) as {
-        entries?: Array<{ value?: unknown }>;
-      };
-      const entry = data?.entries?.[0];
-      if (!entry?.value) return null;
-      return typeof entry.value === "string"
-        ? (JSON.parse(entry.value) as BindingEntry)
-        : (entry.value as BindingEntry);
-    },
-    catch: () => null as BindingEntry | null,
-  }).pipe(Effect.orElseSucceed(() => null));
+): Effect.Effect<BindingEntry | null, never> => readKvBindingEntry(cfg, nearAccountId);
 
-const readProfile = (
-  relays: string[],
-  pubkey: string,
-): Effect.Effect<Identity["profile"] | null, never> =>
+const readProfile = (relays: string[], pubkey: string): Effect.Effect<NostrProfile | null, never> =>
   Effect.tryPromise({
     try: async () => {
       const relay = relays[0];
@@ -119,10 +90,11 @@ const readProfile = (
       if (!line) return null;
       const event = JSON.parse(line) as { content?: string };
       if (!event.content) return null;
-      return JSON.parse(event.content) as Identity["profile"];
+      const parsed = JSON.parse(event.content) as Omit<NostrProfile, "pubkey">;
+      return { pubkey, ...parsed };
     },
-    catch: () => null as Identity["profile"] | null,
-  }).pipe(Effect.orElseSucceed(() => null));
+    catch: () => null,
+  }).pipe(Effect.catchAll(() => Effect.succeed(null)));
 
 const badRequest = (message: string): ORPCError<"BAD_REQUEST", unknown> =>
   new ORPCError("BAD_REQUEST", { message, data: {} });
@@ -176,6 +148,10 @@ export const BindingServiceLive = Layer.effect(
 
     const verifyChallenge: BindingServiceShape["verifyChallenge"] = (event, nearAccountId) =>
       Effect.gen(function* () {
+        const kind27235: NostrEvent = { ...event, kind: 27235 };
+        if (!verifyEvent(kind27235)) {
+          return yield* Effect.fail(badRequest("Invalid Nostr event signature"));
+        }
         const challenge = event.content;
         if (!challenge?.startsWith("bind:")) {
           return yield* Effect.fail(badRequest("No binding challenge found in event content"));
