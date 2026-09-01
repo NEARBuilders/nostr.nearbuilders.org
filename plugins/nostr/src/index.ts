@@ -91,11 +91,11 @@ export default createPlugin.withPlugins<PluginsClient>()({
         timestamp: new Date().toISOString(),
       })),
 
-      getBindingV1: builder.getBindingV1.handler(({ input }) =>
+      getBinding: builder.getBinding.handler(({ input }) =>
         runEffect(binding.getBindingOutput(input.nearAccountId)),
       ),
 
-      getIdentityV1: builder.getIdentityV1.handler(({ input }) =>
+      getIdentity: builder.getIdentity.handler(({ input }) =>
         runEffect(binding.getIdentity(input.nearAccountId, input.enrichProfile)),
       ),
 
@@ -133,7 +133,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
           ),
         ),
 
-      listCommentsV1: builder.listCommentsV1.handler(({ input }) =>
+      listComments: builder.listComments.handler(({ input }) =>
         runEffect(
           comments.listComments({
             target: input.target,
@@ -187,7 +187,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         ),
       ),
 
-      getProfileV1: builder.getProfileV1.handler(({ input }) =>
+      getProfile: builder.getProfile.handler(({ input }) =>
         runEffect(comments.getProfile(input.pubkey)),
       ),
     };

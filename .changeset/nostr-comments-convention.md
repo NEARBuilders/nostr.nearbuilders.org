@@ -12,17 +12,28 @@ Previously the plugin echoed target raw into the near_target tag while the deplo
 - standard.ts query and subscribe client-side near_target filter
 - buzz.ts buildTags near_target value (channel derivation unchanged)
 
-Callers still pass separate target and targetType inputs to createComment and listCommentsV1; the convention is enforced server-side. UI testbench events (already composite) remain visible; plugin-published events become composite too.
+Callers still pass separate target and targetType inputs to createComment and listComments; the convention is enforced server-side. UI testbench events (already composite) remain visible; plugin-published events become composite too.
 
-## clientName for listCommentsV1
+## clientName for listComments
 
-listCommentsV1 was hardcoding "near-nostr-sdk" as the clientName query argument. Now reads cfg.clientName (default nostr.nearbuilders.org), consistent with the t-tag value clients sign.
+listComments was hardcoding "near-nostr-sdk" as the clientName query argument. Now reads cfg.clientName (default nostr.nearbuilders.org), consistent with the t-tag value clients sign.
 
 ## createComment validate-before-publish
 
-createComment now rejects (400) signed events whose near_target tag is absent or does not match composite(targetType, target). Previously it would publish the mismatched event and clients would silently never see it back in listCommentsV1.
+createComment now rejects (400) signed events whose near_target tag is absent or does not match composite(targetType, target). Previously it would publish the mismatched event and clients would silently never see it back in listComments.
 
 Helper exported as assertCommentTagsMatchRequest for direct unit testing; 7 new tests cover the validator.
+
+## Route renames (procedure keys; HTTP paths unchanged)
+
+The legacy V1 suffix on four procedure keys is dropped now that the legacy DB-backed names it was avoiding collisions with were deleted (PR #8). Renamed:
+
+- `getBindingV1` -> `getBinding`
+- `getIdentityV1` -> `getIdentity`
+- `listCommentsV1` -> `listComments`
+- `getProfileV1` -> `getProfile`
+
+HTTP paths under `/v1/*` stay as-is: the `v1` prefix is honest API versioning, and PR #8 confirmed `nearbuilders.org` UI consumes these paths in production (e.g. `nostr-feed.tsx` hitting `/v1/comments`). External raw-fetch consumers are unaffected; typed oRPC clients that imported these procedures must update the method name.
 
 ## Out of scope
 

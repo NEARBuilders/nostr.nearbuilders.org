@@ -19,7 +19,7 @@ export const NostrVariablesSchema = z.object({
   STANDARD_RELAYS: z
     .string()
     .default(DEFAULT_STANDARD_RELAYS)
-    .describe("Comma-separated standard Nostr relays for V1 parity routes"),
+    .describe("Comma-separated standard Nostr relays for the standard comment adapter"),
   BUZZ_RELAYS: z.string().default(DEFAULT_BUZZ_RELAYS).describe("Comma-separated Buzz relay URLs"),
   KV_API_URL: z.string().default(DEFAULT_KV_API).describe("FastNear KV API URL for bindings"),
   BINDING_CONTRACT: z

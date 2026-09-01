@@ -61,7 +61,7 @@ function NostrPage() {
     queryKey: ["nostr-comments", target?.type ?? null, target?.id ?? null],
     queryFn: () => {
       if (!target) throw new Error("Invalid target");
-      return apiClient.nostr.listCommentsV1({
+      return apiClient.nostr.listComments({
         target: target.id,
         targetType: target.type,
         adapterType: "standard",

@@ -34,7 +34,7 @@ export function NostrIdentityCard({
 
   const bindingQuery = useQuery({
     queryKey: bindingQueryKey,
-    queryFn: () => apiClient.nostr.getBindingV1({ nearAccountId }),
+    queryFn: () => apiClient.nostr.getBinding({ nearAccountId }),
     enabled: !!nearAccountId,
     staleTime: 60_000,
   });

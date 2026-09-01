@@ -322,6 +322,10 @@ docker-compose.yml
 **/*.gen.ts
 !ui/src/routeTree.gen.ts
 
+# Transitive type emit from `plugins/nostr` build:types (contract.d.ts is the
+# only manifest of its types/ directory that should be committed)
+plugins/nostr/types/lib/
+
 # Module Federation DTS artifacts
 .mf
 node_modules/.federation
