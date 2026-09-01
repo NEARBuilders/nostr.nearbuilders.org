@@ -1,117 +1,94 @@
-# Template Plugin
+# @every-plugin/nostr
 
-Minimal starter for an `every-plugin` plugin that works both on its own and inside `bos dev`.
+A `createPlugin` for the [everything.dev](https://github.com/nearbuilders/everything-dev) runtime that exposes Nostr ↔ NEAR identity bindings and relay-backed comment threads.
 
-## Included
+## What it provides
 
-```bash
-src/
-├── contract.ts
-├── service.ts
-├── index.ts
-└── LLM.txt
-plugin.dev.ts
-rspack.config.cjs
-tests/
+| Route group | Endpoints |
+| --- | --- |
+| NEAR → Nostr identity | `getPublicKey`, `listRelays`, `ping` |
+| FastNear KV binding parity (V1) | `getBindingV1`, `getIdentityV1`, `createChallenge`, `verifyBinding`, `prepareBindingWrite` |
+| Relay-backed comments (V1) | `listCommentsV1`, `createComment`, `listChannels`, `queryEvents`, `publishEvent`, `getProfileV1` |
+
+Binding events are kind-27235 (NIP-99); comment events are kind-1111 + legacy kind-1 (standard) or kind-9 + channel meta events (buzz).
+
+## Service architecture
+
+```
+BindingService          (src/services/binding.ts)
+└── Effect.Service (Context.Tag) with Layer.effect over NostrConfigTag
+    Reads FastNear KV via src/lib/fastnear-kv.ts
+
+NostrCommentService     (src/services/nostr.ts)
+└── Effect.Service with Layer.scoped + acquireRelease for buzz adapter lifecycle
+    Consumes StandardAdapterService via Layer.provide
+
+StandardAdapterService  (src/nostr-core/adapters/standard-service.ts)
+└── Effect.Service with Layer.scoped + StandardAdapter close() finalizer
+    Wraps nostr-tools SimplePool
+
+BuzzAdapter             (src/nostr-core/adapters/buzz.ts)
+└── Plain class, constructed by NostrCommentService when BUZZ_NSEC is configured
+    NIP-42 relay auth + per-publish OK await
 ```
 
-## Standalone Dev
+## Configuration
+
+Variables (bos.config.json → plugin.dev.ts):
+
+| Variable | Default | Notes |
+| --- | --- | --- |
+| `relays` | 3 public relays | Default relay pool for non-V1 paths |
+| `clientName` | `nostr.nearbuilders.org` | Tag attached to published events |
+| `STANDARD_RELAYS` | comma-separated URL list | V1-parity relay pool |
+| `BUZZ_RELAYS` | `wss://nearbuilders.communities.buzz.xyz` | Buzz-specific relays |
+| `KV_API_URL` | `https://kv.main.fastnear.com` | FastNear KV base URL |
+| `BINDING_CONTRACT` | `contextual.near` | Contract account hosting the KV table |
+| `CHALLENGE_EXPIRY_SECONDS` | `300` | TTL of a `bind:<account>:<expiry>:<label>` challenge |
+
+Secrets:
+
+| Secret | Required for | Format |
+| --- | --- | --- |
+| `BUZZ_NSEC` | buzz adapter | `nsec1...` or 64-char hex |
+
+Misconfigured `BUZZ_NSEC` fails the plugin at initialize (fail-fast, not silent degradation).
+
+## Development
 
 ```bash
-cd plugins/my-plugin
 bun install
-bun run dev
+bun run dev        # bos dev
+bun test           # vitest, from the repo root via `bun run --cwd plugins/nostr test`
+bun run typecheck
+bun run lint
 ```
 
-The plugin dev server prefers `PORT` from the environment. If none is provided, `plugin.dev.ts` supplies a local default.
+## Tests
 
-## Composed Dev With `bos dev`
+`plugins/nostr/tests/` — 38 vitest tests covering key derivation, kind-27235 signing + tamper detection, KV read paths (mocked fetch), and challenge verification. Shared fixtures in `tests/helpers.ts`.
 
-Add the plugin to the root `bos.config.json`:
+## Module structure
 
-```json
-{
-  "plugins": {
-    "my-plugin": {
-      "development": "local:plugins/my-plugin"
-    }
-  }
-}
 ```
-
-Then run:
-
-```bash
-bos dev
+plugins/nostr/
+├── src/
+│   ├── contract.ts               ORPC routes (Zod inputs/outputs)
+│   ├── index.ts                  createPlugin wiring + handlers
+│   ├── lib/
+│   │   ├── auth.ts               framework-owned, synced via bos sync
+│   │   ├── context.ts            framework-owned, synced via bos sync
+│   │   ├── fastnear-kv.ts        cfg-driven FastNear KV read client
+│   │   ├── nostr-config.ts       Zod schemas + Context.Tag + resolveNostrConfig
+│   │   └── schemas.ts            shared Zod schemas + z.infer for wire types
+│   ├── nostr-core/
+│   │   ├── adapters/             RelayAdapter implementations + standard-service.ts
+│   │   ├── core.ts               nostr-tools SimplePool wrapper (vendored)
+│   │   ├── signers/              LocalSigner (vendored)
+│   │   └── types.ts              NostrEvent re-exported from nostr-tools/core
+│   └── services/
+│       ├── binding.ts            BindingService
+│       ├── key-derivation.ts     NEAR-account-derived Nostr keys
+│       └── nostr.ts              NostrCommentService
+└── tests/
 ```
-
-`everything-dev` will:
-
-1. detect `local:plugins/my-plugin`
-2. choose an available localhost port
-3. spawn the plugin with `PORT=<chosen port>`
-4. load it into the host and stitch it into `/api`
-5. shut it down when the dev session ends
-
-If you already run the plugin yourself, use a URL instead:
-
-```json
-{
-  "plugins": {
-    "my-plugin": {
-      "development": "http://localhost:3021"
-    }
-  }
-}
-```
-
-That tells the host to load the plugin from that URL without spawning it.
-
-## Root Local Targets
-
-The workspace now uses the same pattern for built-ins:
-
-```json
-{
-  "app": {
-    "ui": { "development": "local:ui" },
-    "api": { "development": "local:api" }
-  }
-}
-```
-
-## Runtime Example
-
-```ts
-import { createPluginRuntime } from "every-plugin";
-
-const runtime = createPluginRuntime({
-  registry: {
-    "my-plugin": {
-      remote: "http://localhost:3021/remoteEntry.js",
-    },
-  },
-  secrets: {},
-});
-
-const { createClient } = await runtime.usePlugin("my-plugin", {
-  variables: { baseUrl: "https://api.example.com", timeout: 10000 },
-  secrets: { apiKey: "your-key" },
-});
-
-const client = createClient();
-await client.ping();
-```
-
-## Build Checklist
-
-1. Update `src/contract.ts`
-2. Update `src/service.ts`
-3. Update `src/index.ts`
-4. Update `package.json` name
-5. Update `plugin.dev.ts` config
-6. Add the plugin to the root `bos.config.json` if you want composed dev
-
-## Docs
-
-See `LLM.txt` for the longer implementation guide.
