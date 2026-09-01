@@ -3,12 +3,6 @@ import { oc } from "every-plugin/orpc";
 import { z } from "every-plugin/zod";
 import { NostrCommentSchema, ProfileSchema, PublishResultSchema } from "./lib/schemas";
 
-const Errors = {
-  UNAUTHORIZED: { status: 401, message: "Authentication required" },
-  NOT_FOUND: { status: 404, message: "Resource not found" },
-  BAD_REQUEST: { status: 400, message: "Bad request" },
-};
-
 // ── Binding & identity schemas ──
 
 const BindingOutput = z.object({
@@ -28,21 +22,7 @@ const IdentityOutput = z.object({
 });
 
 export const contract = oc.router({
-  getPublicKey: oc
-    .route({
-      method: "GET",
-      path: "/nostr/keys",
-      summary: "Get derived Nostr public key",
-      description: "Returns the user's Nostr pubkey derived from their NEAR session.",
-      tags: ["Keys"],
-    })
-    .output(
-      z.object({
-        pubkey: z.string().describe("Nostr public key (64-char hex)"),
-        hasBinding: z.boolean().describe("Whether a KV binding exists"),
-      }),
-    )
-    .errors(Errors),
+  // ── Identity & health ──
 
   listRelays: oc
     .route({

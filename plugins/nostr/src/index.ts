@@ -16,7 +16,6 @@ import type { PluginsClient } from "./lib/plugins-client.gen";
 import { BuzzAdapterLive, StandardAdapterLive } from "./nostr-core/adapters";
 import type { NostrFilter } from "./nostr-core/types";
 import { BindingService, BindingServiceLive } from "./services/binding";
-import { deriveNostrPubkey } from "./services/key-derivation";
 import { NostrCommentService, NostrCommentServiceLive } from "./services/nostr";
 
 export default createPlugin.withPlugins<PluginsClient>()({
@@ -74,15 +73,6 @@ export default createPlugin.withPlugins<PluginsClient>()({
     ) as DecoratedMiddleware<AuthContext, { nearAccountId: string }, any, any, any, any>;
 
     return {
-      getPublicKey: builder.getPublicKey
-        .use(requireNearAccount)
-        .handler(async ({ context: ctx }) => {
-          const seed = new TextEncoder().encode(ctx.nearAccountId + (ctx.userId ?? ""));
-          const pubkey = deriveNostrPubkey(ctx.nearAccountId, seed);
-          const entry = await runEffect(binding.getBinding(ctx.nearAccountId));
-          return { pubkey, hasBinding: entry !== null };
-        }),
-
       listRelays: builder.listRelays.handler(async () => ({
         relays: services.relays,
       })),

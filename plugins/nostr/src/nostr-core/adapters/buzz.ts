@@ -1,7 +1,6 @@
 import { finalizeEvent, getPublicKey } from "nostr-tools/pure";
 import WebSocket from "ws";
-import type { NostrSubscription } from "../core";
-import type { NostrEvent, NostrFilter } from "../types";
+import type { NostrEvent, NostrFilter, NostrSubscription } from "../types";
 import { nearTargetKey, parseRelayEvent } from "../types";
 import type {
   AdapterPublishResult,
