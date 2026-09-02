@@ -2,98 +2,26 @@ import { createPlugin } from "every-plugin";
 import { Effect, Layer } from "every-plugin/effect";
 import type { DecoratedMiddleware } from "every-plugin/orpc";
 import { ORPCError } from "every-plugin/orpc";
-import { z } from "every-plugin/zod";
-
 import { contract } from "./contract";
-import { DatabaseLive } from "./db/layer";
 import type { AuthContext } from "./lib/auth";
+import { createAuthMiddleware } from "./lib/auth";
 import { ContextSchema, runEffect } from "./lib/context";
-import { NostrConfigLive, resolveNostrConfig } from "./lib/nostr-config";
-import type { PluginsClient } from "./lib/plugins-client.gen";
-import { NearNostrLive, NearNostrService } from "./near-nostr";
 import {
-  NostrCoreLive,
-  NostrCoreService,
-  StandardAdapterLive,
-  StandardAdapterService,
-} from "./nostr-core";
-import { BindingService } from "./services/binding";
-import { BindingsService } from "./services/bindings";
-import { deriveNostrPubkey, deriveNostrSecretKey } from "./services/key-derivation";
-import { NostrCommentService } from "./services/nostr";
-
-// Minimal bech32 decode for nsec keys (no external deps) — parity with nearbuilders.org nostr-comments
-function decodeBech32(str: string): Uint8Array {
-  const CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
-  const words: number[] = [];
-  for (let i = 0; i < str.length; i++) {
-    const c = str[i]!;
-    const idx = CHARSET.indexOf(c);
-    if (idx === -1) continue;
-    words.push(idx);
-  }
-  // Skip separator (last word) and checksum (last 6 words)
-  const data = words.slice(1, -6);
-  const acc = new Uint8Array(32);
-  let bits = 0;
-  let acc2 = 0;
-  for (const word of data) {
-    acc2 = (acc2 << 5) | word;
-    bits += 5;
-    while (bits >= 8) {
-      bits -= 8;
-      acc[acc.length - 1 - ((bits / 5) | 0)] = (acc2 >>> bits) & 0xff;
-    }
-  }
-  return acc;
-}
+  NostrConfigLive,
+  NostrSecretsSchema,
+  NostrVariablesSchema,
+  resolveNostrConfig,
+} from "./lib/nostr-config";
+import type { PluginsClient } from "./lib/plugins-client.gen";
+import { BuzzAdapterLive, StandardAdapterLive } from "./nostr-core/adapters";
+import type { NostrFilter } from "./nostr-core/types";
+import { BindingService, BindingServiceLive } from "./services/binding";
+import { NostrCommentService, NostrCommentServiceLive } from "./services/nostr";
 
 export default createPlugin.withPlugins<PluginsClient>()({
-  variables: z.object({
-    relays: z
-      .array(z.string())
-      .default(["wss://relay.damus.io", "wss://nos.lol", "wss://relay.primal.net"])
-      .describe("Default Nostr relay URLs"),
-    clientName: z
-      .string()
-      .default("nostr.nearbuilders.org")
-      .describe("Client identifier tag attached to each published event"),
-    // ── V1 parity variables (nearbuilders.org nostr-bindings + nostr-comments) ──
-    STANDARD_RELAYS: z
-      .string()
-      .default("wss://nos.lol,wss://relay.damus.io,wss://relay.primal.net")
-      .describe("Comma-separated standard Nostr relays for V1 parity routes"),
-    BUZZ_RELAYS: z
-      .string()
-      .default("wss://nearbuilders.communities.buzz.xyz")
-      .describe("Comma-separated Buzz relay URLs"),
-    BUZZ_NSEC: z
-      .string()
-      .optional()
-      .default("")
-      .describe(
-        "nsec/hex key for Buzz adapter NIP-42 relay auth (server identity only, never signs user events)",
-      ),
-    KV_API_URL: z
-      .string()
-      .default("https://kv.main.fastnear.com")
-      .describe("FastNear KV API URL for bindings"),
-    BINDING_CONTRACT: z
-      .string()
-      .default("contextual.near")
-      .describe("FastNear KV binding contract account"),
-    CHALLENGE_EXPIRY_SECONDS: z.coerce
-      .number()
-      .default(300)
-      .describe("Binding challenge expiry in seconds"),
-  }),
+  variables: NostrVariablesSchema,
 
-  secrets: z.object({
-    NOSTR_DATABASE_URL: z
-      .string()
-      .default("pglite:.bos/nostr/:memory:")
-      .describe("Database connection string for Nostr binding storage"),
-  }),
+  secrets: NostrSecretsSchema,
 
   context: ContextSchema,
 
@@ -101,58 +29,26 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
   initialize: (config, _plugins, tools) =>
     Effect.gen(function* () {
-      const databaseLayer = DatabaseLive(config.secrets.NOSTR_DATABASE_URL);
-      const configLayer = NostrConfigLive(resolveNostrConfig(config.variables));
+      const resolved = resolveNostrConfig(config.variables, config.secrets);
+      const configLayer = NostrConfigLive(resolved);
 
-      const core = yield* tools.buildService(
-        NostrCoreService,
-        NostrCoreLive.pipe(Layer.provide(configLayer)),
+      const binding = yield* tools.buildService(
+        BindingService,
+        BindingServiceLive.pipe(Layer.provide(configLayer)),
       );
 
-      const adapter = yield* tools.buildService(
-        StandardAdapterService,
-        StandardAdapterLive.pipe(Layer.provide(configLayer)),
-      );
-
-      const bindings = yield* tools.buildService(
-        BindingsService,
-        BindingsService.Live.pipe(Layer.provide(databaseLayer)),
-      );
-
-      const nearNostr = yield* tools.buildService(
-        NearNostrService,
-        NearNostrLive.pipe(
-          Layer.provide(Layer.succeed(NostrCoreService, core)),
-          Layer.provide(Layer.succeed(StandardAdapterService, adapter)),
+      const comments = yield* tools.buildService(
+        NostrCommentService,
+        NostrCommentServiceLive.pipe(
+          Layer.provide(BuzzAdapterLive),
+          Layer.provide(StandardAdapterLive),
           Layer.provide(configLayer),
         ),
       );
 
-      // ── V1 parity services (nearbuilders.org nostr-bindings + nostr-comments) ──
-      const buzzNsec = config.variables.BUZZ_NSEC;
-      let buzzSecretKey: Uint8Array | undefined;
-      if (buzzNsec) {
-        buzzSecretKey = buzzNsec.startsWith("nsec")
-          ? decodeBech32(buzzNsec)
-          : new Uint8Array(Buffer.from(buzzNsec, "hex"));
-      }
-
-      const kvBindings = new BindingService({
-        kvApiUrl: config.variables.KV_API_URL,
-        bindingContract: config.variables.BINDING_CONTRACT,
-        standardRelays: config.variables.STANDARD_RELAYS.split(","),
-        challengeExpirySeconds: config.variables.CHALLENGE_EXPIRY_SECONDS,
-      });
-
-      const comments = new NostrCommentService({
-        standardRelays: config.variables.STANDARD_RELAYS.split(","),
-        buzzRelays: config.variables.BUZZ_RELAYS.split(","),
-        buzzSecretKey,
-      });
-
       yield* Effect.logInfo("[Nostr] Services Initialized");
 
-      return { core, adapter, bindings, nearNostr, kvBindings, comments };
+      return { relays: resolved.relays, binding, comments };
     }),
 
   shutdown: () =>
@@ -161,7 +57,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
     }),
 
   createRouter: (services, builder) => {
-    const { nearNostr, bindings, adapter, kvBindings, comments } = services;
+    const { binding, comments } = services;
+    const mw = createAuthMiddleware(builder);
 
     const requireNearAccount = builder.middleware(
       async ({ context, next }: { context: AuthContext; next: any }) => {
@@ -175,346 +72,120 @@ export default createPlugin.withPlugins<PluginsClient>()({
       },
     ) as DecoratedMiddleware<AuthContext, { nearAccountId: string }, any, any, any, any>;
 
-    // Session-based auth middleware — parity with nearbuilders.org plugin routers
-    const requireAuth = builder.middleware(
-      async ({ context, next }: { context: AuthContext; next: any }) => {
-        if (!context.user || !context.userId) {
-          throw new ORPCError("UNAUTHORIZED", {
-            message: "Authentication required",
-          });
-        }
-        return next({
-          context: { ...context, userId: context.userId!, user: context.user! },
-        });
-      },
-    ) as DecoratedMiddleware<
-      AuthContext,
-      { userId: string; user: NonNullable<AuthContext["user"]> },
-      any,
-      any,
-      any,
-      any
-    >;
-
     return {
-      getPublicKey: builder.getPublicKey
-        .use(requireNearAccount)
-        .handler(async ({ context: ctx }) => {
-          const seed = new TextEncoder().encode(ctx.nearAccountId + (ctx.userId ?? ""));
-          const pubkey = deriveNostrPubkey(ctx.nearAccountId, seed);
-          const binding = await runEffect(bindings.getBinding(ctx.nearAccountId));
-          return { pubkey, hasBinding: binding !== null };
-        }),
-
       listRelays: builder.listRelays.handler(async () => ({
-        relays: nearNostr.config.relays,
+        relays: services.relays,
       })),
-
-      getProfile: builder.getProfile.handler(async ({ input }) => {
-        const profile = await adapter.getProfile(input.pubkey);
-        if (!profile) {
-          throw new ORPCError("NOT_FOUND", { message: "Profile not found" });
-        }
-        return profile;
-      }),
-
-      getIdentity: builder.getIdentity.handler(async ({ input }) => {
-        const identity = await nearNostr.getIdentity(input.nearAccountId);
-        return identity;
-      }),
-
-      publishComment: builder.publishComment
-        .use(requireNearAccount)
-        .handler(async ({ input, context: ctx }) => {
-          const seed = new TextEncoder().encode(ctx.nearAccountId + (ctx.userId ?? ""));
-          const secretKey = deriveNostrSecretKey(ctx.nearAccountId, seed);
-
-          const { event, statuses: statusMap } = await nearNostr.createComment({
-            target: input.target,
-            content: input.content,
-            nearAccountId: ctx.nearAccountId,
-            nostrSecretKey: secretKey,
-            parentEventId: input.parentEventId,
-            rootEventId: input.rootEventId,
-            parentPubkey: input.parentPubkey,
-            relays: input.relays,
-            adapterType: input.adapterType,
-          });
-
-          return { event, statuses: Object.fromEntries(statusMap) };
-        }),
-
-      listComments: builder.listComments.handler(async ({ input }) => {
-        const comments = await nearNostr.listComments({
-          target: input.target,
-          limit: input.limit,
-          since: input.since,
-          until: input.until,
-          relays: input.relays,
-          adapterType: input.adapterType,
-          requireBound: input.requireBound,
-        });
-
-        const enriched = await nearNostr.enrichComments(comments);
-        return enriched;
-      }),
-
-      createBinding: builder.createBinding
-        .use(requireNearAccount)
-        .handler(async ({ input, context: ctx }) => {
-          return await runEffect(
-            bindings.createBinding({
-              nearAccountId: ctx.nearAccountId,
-              nostrPubkey: input.nostrPubkey,
-              relay: input.relay,
-            }),
-          );
-        }),
-
-      deleteBinding: builder.deleteBinding
-        .use(requireNearAccount)
-        .handler(async ({ context: ctx }) => {
-          await runEffect(bindings.deleteBinding(ctx.nearAccountId));
-          return { success: true as const };
-        }),
-
-      getBinding: builder.getBinding.handler(async ({ input }) => {
-        return await runEffect(bindings.getBinding(input.nearAccountId));
-      }),
 
       ping: builder.ping.handler(async () => ({
         status: "ok" as const,
         timestamp: new Date().toISOString(),
       })),
 
-      // ── V1 parity handlers (nearbuilders.org nostr-bindings + nostr-comments) ──
+      getBinding: builder.getBinding.handler(({ input }) =>
+        runEffect(binding.getBindingOutput(input.nearAccountId)),
+      ),
 
-      // From nostr-bindings
-      getBindingV1: builder.getBindingV1.handler(async ({ input }) => {
-        return await kvBindings.getBindingOutput(input.nearAccountId);
-      }),
+      getIdentity: builder.getIdentity.handler(({ input }) =>
+        runEffect(binding.getIdentity(input.nearAccountId, input.enrichProfile)),
+      ),
 
-      getIdentityV1: builder.getIdentityV1.handler(async ({ input }) => {
-        return await kvBindings.getIdentity(input.nearAccountId, input.enrichProfile);
-      }),
-
-      createChallenge: builder.createChallenge.use(requireAuth).handler(async ({ context }) => {
-        const nearAccountId = context.near?.primaryAccountId ?? context.userId;
-        if (!nearAccountId) {
-          throw new ORPCError("UNAUTHORIZED", {
-            message: "NEAR account required for binding",
-          });
-        }
-        return kvBindings.createChallenge(nearAccountId);
-      }),
+      createChallenge: builder.createChallenge
+        .use(mw.requireAuth)
+        .use(requireNearAccount)
+        .handler(({ context }) => runEffect(binding.createChallenge(context.nearAccountId))),
 
       verifyBinding: builder.verifyBinding
-        .use(requireAuth)
-        .handler(async ({ input, context, errors }) => {
-          try {
-            const nearAccountId = context.near?.primaryAccountId ?? context.userId;
-            if (!nearAccountId) {
-              throw new ORPCError("UNAUTHORIZED", {
-                message: "NEAR account required",
-              });
-            }
-
-            const { verifyEvent } = await import("nostr-tools/pure");
-            if (!verifyEvent(input.event as any)) {
-              throw new ORPCError("BAD_REQUEST", {
-                message: "Invalid Nostr event signature",
-              });
-            }
-
-            const result = kvBindings.verifyChallenge(input.event, nearAccountId);
-
-            return {
-              valid: result.valid,
-              nearAccountId,
-              nostrPubkey: result.nostrPubkey,
-              proof: result.proof,
-            };
-          } catch (error) {
-            if (error instanceof ORPCError) throw error;
-            throw errors.BAD_REQUEST({
-              message: error instanceof Error ? error.message : "Verification failed",
-              data: {},
-            });
-          }
+        .use(mw.requireAuth)
+        .use(requireNearAccount)
+        .handler(async ({ input, context }) => {
+          const result = await runEffect(
+            binding.verifyChallenge(input.event, context.nearAccountId),
+          );
+          return {
+            valid: result.valid,
+            nearAccountId: context.nearAccountId,
+            nostrPubkey: result.nostrPubkey,
+            proof: result.proof,
+          };
         }),
 
       prepareBindingWrite: builder.prepareBindingWrite
-        .use(requireAuth)
-        .handler(async ({ input, context, errors }) => {
-          try {
-            const nearAccountId = context.near?.primaryAccountId ?? context.userId;
-            if (!nearAccountId) {
-              throw new ORPCError("UNAUTHORIZED", {
-                message: "NEAR account required",
-              });
-            }
-
-            return kvBindings.prepareBindingWrite({
+        .use(mw.requireAuth)
+        .use(requireNearAccount)
+        .handler(({ input, context }) =>
+          runEffect(
+            binding.prepareBindingWrite({
               nostrPubkey: input.nostrPubkey,
               relay: input.relay,
               proof: input.proof,
-              nearAccountId,
-            });
-          } catch (error) {
-            if (error instanceof ORPCError) throw error;
-            throw errors.BAD_REQUEST({
-              message: error instanceof Error ? error.message : "Prepare failed",
-              data: {},
-            });
-          }
-        }),
+              nearAccountId: context.nearAccountId,
+            }),
+          ),
+        ),
 
-      // From nostr-comments
-      listCommentsV1: builder.listCommentsV1.handler(async ({ input, errors }) => {
-        try {
-          if (!input.adapterType) {
-            throw new ORPCError("BAD_REQUEST", {
-              message: "adapterType is required",
-              data: { hint: "Specify 'buzz' or 'standard'" },
-            });
-          }
-
-          if (!comments.hasAdapter(input.adapterType)) {
-            throw new ORPCError("BAD_REQUEST", {
-              message: `Adapter '${input.adapterType}' is not configured`,
-            });
-          }
-
-          const result = await comments.listComments({
+      listComments: builder.listComments.handler(({ input }) =>
+        runEffect(
+          comments.listComments({
             target: input.target,
             targetType: input.targetType,
-            adapterType: input.adapterType,
+            adapterType: input.adapterType ?? "standard",
             limit: input.limit,
             since: input.since,
             enrich: input.enrich,
             requireBound: input.requireBound,
             requireVerified: input.requireVerified,
-          });
-          return { data: result, meta: { count: result.length } };
-        } catch (error) {
-          if (error instanceof ORPCError) throw error;
-          throw errors.BAD_REQUEST({
-            message: error instanceof Error ? error.message : "Could not list comments",
-            data: {},
-          });
-        }
-      }),
+          }),
+        ).then((result) => ({ data: result, meta: { count: result.length } })),
+      ),
 
-      // NOTE: unauthenticated by design upstream (events are client-signed; server never
-      // holds user keys) — kept as-is for parity with nearbuilders.org nostr-comments.
-      createComment: builder.createComment.handler(async ({ input, errors }) => {
-        try {
-          if (!input.adapterType) {
-            throw new ORPCError("BAD_REQUEST", {
-              message: "adapterType is required",
-              data: { hint: "Specify 'buzz' or 'standard'" },
-            });
+      createComment: builder.createComment
+        .use(mw.requireAuth)
+        .use(requireNearAccount)
+        .handler(({ input }) =>
+          runEffect(
+            comments.publishSigned({
+              event: input.event,
+              target: input.target,
+              targetType: input.targetType,
+              adapterType: input.adapterType ?? "standard",
+            }),
+          ),
+        ),
+
+      listChannels: builder.listChannels.handler(() =>
+        runEffect(comments.listChannels("buzz")).then((data) => ({ data })),
+      ),
+
+      queryEvents: builder.queryEvents.handler(({ input }) => {
+        const filter: NostrFilter = {};
+        if (input.filter.kinds) filter.kinds = input.filter.kinds;
+        if (input.filter.authors) filter.authors = input.filter.authors;
+        if (input.filter.ids) filter.ids = input.filter.ids;
+        if (input.filter.since) filter.since = input.filter.since;
+        if (input.filter.until) filter.until = input.filter.until;
+        if (input.filter.limit) filter.limit = input.filter.limit;
+        if (input.filter.tags) {
+          for (const { tag, values } of input.filter.tags) {
+            filter[`#${tag}`] = values;
           }
-
-          if (!comments.hasAdapter(input.adapterType)) {
-            throw new ORPCError("BAD_REQUEST", {
-              message: `Adapter '${input.adapterType}' is not configured`,
-            });
-          }
-
-          // Ensure kind is present — Zod default(1) may not set it if sent as undefined
-          const evt = { ...input.event, kind: input.event.kind ?? 1 };
-          const result = await comments.publishSigned({
-            event: evt,
-            target: input.target,
-            targetType: input.targetType,
-            adapterType: input.adapterType,
-          });
-          return result;
-        } catch (error) {
-          if (error instanceof ORPCError) throw error;
-          throw errors.BAD_REQUEST({
-            message: error instanceof Error ? error.message : "Could not publish comment",
-            data: {},
-          });
         }
+        return runEffect(comments.rawQuery({ filter, relays: input.relays })).then((events) => ({
+          events,
+        }));
       }),
 
-      listChannels: builder.listChannels.handler(async () => {
-        try {
-          const channels = await comments.listChannels("buzz");
-          return { data: channels };
-        } catch {
-          return { data: [] };
-        }
-      }),
+      publishEvent: builder.publishEvent
+        .use(mw.requireAuth)
+        .handler(({ input }) =>
+          runEffect(comments.rawPublish({ event: input.event, relays: input.relays })).then(
+            (result) => ({ eventId: result.eventId, statuses: result.statuses }),
+          ),
+        ),
 
-      queryEvents: builder.queryEvents.handler(async ({ input, errors }) => {
-        try {
-          if (!comments.hasAdapter("standard")) {
-            throw new ORPCError("BAD_REQUEST", {
-              message: "Standard adapter not configured",
-            });
-          }
-
-          // Build NostrFilter from input
-          const filter: Record<string, unknown> = {};
-          if (input.filter.kinds) filter.kinds = input.filter.kinds;
-          if (input.filter.authors) filter.authors = input.filter.authors;
-          if (input.filter.ids) filter.ids = input.filter.ids;
-          if (input.filter.since) filter.since = input.filter.since;
-          if (input.filter.until) filter.until = input.filter.until;
-          if (input.filter.limit) filter.limit = input.filter.limit;
-          if (input.filter.tags) {
-            for (const { tag, values } of input.filter.tags) {
-              filter[`#${tag}`] = values;
-            }
-          }
-
-          const events = await comments.rawQuery({ filter, relays: input.relays });
-          return { events };
-        } catch (error) {
-          if (error instanceof ORPCError) throw error;
-          throw errors.BAD_REQUEST({
-            message: error instanceof Error ? error.message : "Query failed",
-            data: {},
-          });
-        }
-      }),
-
-      publishEvent: builder.publishEvent.handler(async ({ input, errors }) => {
-        try {
-          if (!comments.hasAdapter("standard")) {
-            throw new ORPCError("BAD_REQUEST", {
-              message: "Standard adapter not configured",
-            });
-          }
-
-          const result = await comments.rawPublish({
-            event: input.event as any,
-            relays: input.relays,
-          });
-          return {
-            eventId: result.eventId,
-            statuses: result.statuses,
-          };
-        } catch (error) {
-          if (error instanceof ORPCError) throw error;
-          throw errors.BAD_REQUEST({
-            message: error instanceof Error ? error.message : "Publish failed",
-            data: {},
-          });
-        }
-      }),
-
-      getProfileV1: builder.getProfileV1.handler(async ({ input }) => {
-        try {
-          const profile = await comments.getProfile(input.pubkey);
-          return profile;
-        } catch {
-          return null;
-        }
-      }),
+      getProfile: builder.getProfile.handler(({ input }) =>
+        runEffect(comments.getProfile(input.pubkey)),
+      ),
     };
   },
 });

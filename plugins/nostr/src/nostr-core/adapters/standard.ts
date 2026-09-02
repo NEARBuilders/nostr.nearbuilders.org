@@ -1,10 +1,11 @@
 import { SimplePool } from "nostr-tools/pool";
-import { finalizeEvent } from "nostr-tools/pure";
-import type { NostrSubscription } from "../core";
-import type { NostrEvent, NostrFilter } from "../types";
+import { finalizeEvent, verifyEvent } from "nostr-tools/pure";
+import type { NostrProfile } from "../../lib/schemas";
+import type { NostrEvent, NostrFilter, NostrSubscription } from "../types";
+import { nearTargetKey } from "../types";
 import type {
+  AdapterPublishResult,
   PublishAdapterOptions,
-  PublishResult,
   QueryAdapterOptions,
   RelayAdapter,
   SubscribeAdapterOptions,
@@ -24,7 +25,7 @@ export class StandardAdapter implements RelayAdapter {
     this.pool = new SimplePool();
   }
 
-  async publish(opts: PublishAdapterOptions): Promise<PublishResult> {
+  async publish(opts: PublishAdapterOptions): Promise<AdapterPublishResult> {
     const tags = this.#buildTags(opts);
     const event = finalizeEvent(
       {
@@ -37,7 +38,7 @@ export class StandardAdapter implements RelayAdapter {
     );
 
     const relays = opts.relays ?? this.relays;
-    const results = this.pool.publish(relays, event as any);
+    const results = this.pool.publish(relays, event);
     const statuses = new Map<string, boolean>();
     await Promise.allSettled(
       results.map(async (p, i) => {
@@ -50,12 +51,15 @@ export class StandardAdapter implements RelayAdapter {
       }),
     );
 
-    return { event: event as unknown as NostrEvent, statuses };
+    return { event, statuses };
   }
 
-  async publishSigned(event: NostrEvent, relays?: string[]): Promise<PublishResult> {
+  async publishSigned(event: NostrEvent, relays?: string[]): Promise<AdapterPublishResult> {
+    if (!verifyEvent(event)) {
+      throw new Error("Invalid Nostr event signature");
+    }
     const relayList = relays ?? this.relays;
-    const results = this.pool.publish(relayList, event as any);
+    const results = this.pool.publish(relayList, event);
     const statuses = new Map<string, boolean>();
     await Promise.allSettled(
       results.map(async (p, i) => {
@@ -80,11 +84,12 @@ export class StandardAdapter implements RelayAdapter {
     if (opts.until) filter.until = opts.until;
     if (opts.since) filter.since = opts.since;
 
-    const events = await this.pool.querySync(relays, filter as any);
-    const filtered = events.filter((e: any) =>
-      e.tags.some((t: string[]) => t[0] === "near_target" && t[1] === opts.target),
+    const events = await this.pool.querySync(relays, filter);
+    const targetKey = nearTargetKey(opts.targetType, opts.target);
+    const filtered = events.filter((e: NostrEvent) =>
+      e.tags.some((t: string[]) => t[0] === "near_target" && t[1] === targetKey),
     );
-    return { events: filtered as unknown as NostrEvent[] };
+    return { events: filtered };
   }
 
   subscribe(opts: SubscribeAdapterOptions): NostrSubscription {
@@ -92,17 +97,18 @@ export class StandardAdapter implements RelayAdapter {
     let closed = false;
     let eventCb: ((event: NostrEvent) => void) | null = null;
     let eoseCb: (() => void) | null = null;
+    const targetKey = nearTargetKey(opts.targetType, opts.target);
 
     const closer = this.pool.subscribeMany(
       relays,
-      [{ kinds: [...COMMENT_KINDS], "#t": [opts.targetType], limit: 100 }] as any,
+      { kinds: [...COMMENT_KINDS], "#t": [opts.targetType], limit: 100 },
       {
-        onevent: (event: any) => {
+        onevent: (event: NostrEvent) => {
           if (closed || !eventCb) return;
           const hasTarget = event.tags.some(
-            (t: string[]) => t[0] === "near_target" && t[1] === opts.target,
+            (t: string[]) => t[0] === "near_target" && t[1] === targetKey,
           );
-          if (hasTarget) eventCb(event as unknown as NostrEvent);
+          if (hasTarget) eventCb(event);
         },
         oneose: () => {
           if (closed || !eoseCb) return;
@@ -128,23 +134,18 @@ export class StandardAdapter implements RelayAdapter {
     this.pool.close(this.relays);
   }
 
-  async queryRaw(filter: Record<string, unknown>, relays?: string[]): Promise<NostrEvent[]> {
+  async queryRaw(filter: NostrFilter, relays?: string[]): Promise<NostrEvent[]> {
     const relayList = relays ?? this.relays;
-    return this.pool.querySync(relayList, filter as any) as unknown as NostrEvent[];
+    return this.pool.querySync(relayList, filter);
   }
 
-  async getProfile(pubkey: string): Promise<{
-    pubkey: string;
-    name?: string | null;
-    picture?: string | null;
-    about?: string | null;
-    nip05?: string | null;
-    website?: string | null;
-  } | null> {
+  async getProfile(pubkey: string): Promise<NostrProfile | null> {
     try {
-      const events = await this.pool.querySync(this.relays, [
-        { kinds: [0], authors: [pubkey], limit: 1 },
-      ] as any);
+      const events = await this.pool.querySync(this.relays, {
+        kinds: [0],
+        authors: [pubkey],
+        limit: 1,
+      });
       if (events.length === 0) return null;
       const content = events[0]!.content;
       const parsed = JSON.parse(content);
@@ -159,18 +160,17 @@ export class StandardAdapter implements RelayAdapter {
     tags.push(["t", opts.targetType]);
     tags.push(["t", opts.clientName]);
     tags.push(["p", opts.pubkey]);
+    if (opts.nearAccountId) {
+      tags.push(["p", `_near:${opts.nearAccountId}`]);
+    }
     if (opts.parentEventId) {
-      tags.push(["e", opts.rootEventId ?? opts.parentEventId, "", "root"]);
       tags.push(["e", opts.parentEventId, "", "reply"]);
-      if (opts.parentPubkey) {
-        tags.push(["p", opts.parentPubkey]);
-      }
     }
     if (opts.targetUrl) {
       tags.push(["r", opts.targetUrl]);
     }
     tags.push(["client", opts.clientName]);
-    tags.push(["near_target", opts.target]);
+    tags.push(["near_target", nearTargetKey(opts.targetType, opts.target)]);
     if (opts.nearAccountId) {
       tags.push(["near_account", opts.nearAccountId]);
     }

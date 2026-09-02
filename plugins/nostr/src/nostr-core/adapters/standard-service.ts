@@ -11,8 +11,8 @@ export const StandardAdapterLive = Layer.scoped(
   StandardAdapterService,
   Effect.acquireRelease(
     Effect.gen(function* () {
-      const { relays } = yield* NostrConfigTag;
-      return new StandardAdapter(relays);
+      const { standardRelays } = yield* NostrConfigTag;
+      return new StandardAdapter(standardRelays);
     }),
     (adapter) => Effect.sync(() => adapter.close()),
   ),

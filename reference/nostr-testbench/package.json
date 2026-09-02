@@ -11,7 +11,7 @@
     "@hot-labs/near-connect": "^0.11.4",
     "@noble/hashes": "^2.2.0",
     "near-nostr-sdk": "file:../near-nostr-sdk",
-    "nostr-tools": "^2.24.1",
+    "nostr-tools": "2.25.0",
     "react": "^19",
     "react-dom": "^19"
   },

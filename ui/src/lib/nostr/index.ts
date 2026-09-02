@@ -1,3 +1,5 @@
+export type { BindingWriteArgs } from "./bind";
+export { pollBinding, signBindingEvent, submitBindingWrite } from "./bind";
 export type { NearNostrBinding } from "./binding";
 export {
   buildTxArgs,
@@ -17,4 +19,4 @@ export type {
   NostrEvent,
   NostrFilter,
 } from "./types";
-export { DEFAULT_RELAYS, Kind } from "./types";
+export { DEFAULT_RELAYS, Kind, formatTargetString, parseTargetString } from "./types";

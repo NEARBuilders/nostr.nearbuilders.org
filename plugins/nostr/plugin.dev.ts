@@ -12,13 +12,12 @@ export default {
       clientName: "nostr.nearbuilders.org",
       STANDARD_RELAYS: "wss://nos.lol,wss://relay.damus.io,wss://relay.primal.net",
       BUZZ_RELAYS: "wss://nearbuilders.communities.buzz.xyz",
-      BUZZ_NSEC: process.env.BUZZ_NSEC || "",
       KV_API_URL: "https://kv.main.fastnear.com",
       BINDING_CONTRACT: "contextual.near",
       CHALLENGE_EXPIRY_SECONDS: 300,
     },
     secrets: {
-      NOSTR_DATABASE_URL: process.env.NOSTR_DATABASE_URL || "pglite:.bos/nostr/:memory:",
+      BUZZ_NSEC: process.env.BUZZ_NSEC || "",
     },
   } satisfies PluginConfigInput<typeof Plugin>,
 };

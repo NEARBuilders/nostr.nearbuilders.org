@@ -1,333 +1,284 @@
-/**
- * Nostr comments service — standard/buzz relay adapters.
- * Stateless: comments are on Nostr relays, no local DB.
- *
- * Ported from nearbuilders.org plugins/nostr-comments (PR #162) for parity.
- * Adapted: imports near-nostr-sdk → this repo's local nostr-core adapters.
- * Fix: KV_API was referenced but never declared upstream; declared here.
- */
+import { Context, Effect, Layer, Option } from "every-plugin/effect";
+import { ORPCError } from "every-plugin/orpc";
+import { readKvBindingEntry } from "../lib/fastnear-kv";
+import type { NostrResolvedConfig } from "../lib/nostr-config";
+import { NostrConfigTag } from "../lib/nostr-config";
+import type { ChannelInfo, NostrComment, NostrProfile, PublishResult } from "../lib/schemas";
+import {
+  BuzzAdapter,
+  BuzzAdapterService,
+  type StandardAdapter,
+  StandardAdapterService,
+} from "../nostr-core/adapters";
+import type { NostrEvent, NostrFilter } from "../nostr-core/types";
+import { findNearTargetTag, nearTargetKey } from "../nostr-core/types";
 
-import { createHash } from "crypto";
-import WebSocket from "ws";
-import { BuzzAdapter, StandardAdapter } from "../nostr-core/adapters";
-import type { RelayAdapter } from "../nostr-core/adapters/types";
-import type { NostrEvent } from "../nostr-core/types";
+type AdapterType = "standard" | "buzz";
 
-const KV_API = "https://kv.main.fastnear.com";
-
-// ── Types ──
-
-export type NostrComment = {
-  id: string;
-  pubkey: string;
-  content: string;
-  target: string;
-  targetType: string;
-  nearAccountId?: string | null;
-  parentEventId?: string | null;
-  createdAt: number;
-  tags?: string[][];
-  source: "standard" | "buzz";
-};
-
-export type PublishResult = {
-  eventId: string;
-  statuses: { relay: string; success: boolean }[];
-};
-
-export type ChannelInfo = {
-  id: string;
-  name?: string | null;
-  members?: number | null;
-};
-
-// ── NostrCommentService ──
-
-/**
- * Unified service wrapping relay adapters.
- * Accepts pre-signed events (from extension/nsec) — never holds user keys server-side.
- */
-export class NostrCommentService {
-  #adapters: Map<string, RelayAdapter> = new Map();
-
-  constructor(opts: {
-    standardRelays?: string[];
-    buzzRelays?: string[];
-    buzzSecretKey?: Uint8Array; // only for Buzz NIP-42 auth (server identity, not user signing)
-  }) {
-    // Standard adapter — no keys needed
-    if (opts.standardRelays?.length) {
-      this.#adapters.set("standard", new StandardAdapter(opts.standardRelays));
-    }
-
-    // Buzz adapter — needs a key for NIP-42 relay auth, but NOT for signing user events
-    if (opts.buzzRelays?.length && opts.buzzSecretKey) {
-      this.#adapters.set(
-        "buzz",
-        new BuzzAdapter({
-          relays: opts.buzzRelays,
-          secretKey: opts.buzzSecretKey,
-          resolveChannel: (target: string) => {
-            return createHash("sha256").update(target).digest("hex").slice(0, 16);
-          },
-        }),
-      );
-    }
-  }
-
-  getAdapter(adapterType: string): RelayAdapter {
-    const adapter = this.#adapters.get(adapterType);
-    if (!adapter) throw new Error(`Unknown adapter: ${adapterType}`);
-    return adapter;
-  }
-
-  hasAdapter(adapterType: string): boolean {
-    return this.#adapters.has(adapterType);
-  }
-
-  /** List comments (read-only, no signing needed) */
-  async listComments(opts: {
+export interface NostrCommentServiceShape {
+  readonly listComments: (opts: {
     target: string;
     targetType: string;
-    adapterType: string;
+    adapterType: AdapterType;
     limit?: number;
     since?: number;
-    enrich?: boolean; // batch-resolve profiles
-    requireBound?: boolean; // filter: must have near_account tag
-    requireVerified?: boolean; // filter: must have verified KV binding
-  }): Promise<NostrComment[]> {
-    const adapter = this.getAdapter(opts.adapterType);
-    const { events } = await adapter.query({
-      target: opts.target,
-      targetType: opts.targetType,
-      clientName: "near-nostr-sdk",
-      limit: opts.limit,
-      since: opts.since,
-    });
-
-    const comments = events.map((e) =>
-      this.#toComment(e, opts.target, opts.targetType, opts.adapterType as "standard" | "buzz"),
-    );
-
-    // requireBound: skip comments without near_account tag
-    let filtered = opts.requireBound ? comments.filter((c) => c.nearAccountId) : comments;
-
-    // requireVerified: batch-check KV bindings
-    if (opts.requireVerified) {
-      const accounts = [
-        ...new Set(filtered.filter((c) => c.nearAccountId).map((c) => c.nearAccountId!)),
-      ];
-      const BATCH = 5;
-      const verified = new Set<string>();
-      for (let i = 0; i < accounts.length; i += BATCH) {
-        const batch = accounts.slice(i, i + BATCH);
-        const results = await Promise.allSettled(
-          batch.map(async (acc) => {
-            try {
-              const res = await fetch(`${KV_API}/v0/latest/contextual.near/${acc}/nostr/${acc}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: "{}",
-              });
-              if (!res.ok) return null;
-              const data = (await res.json()) as {
-                entries?: Array<{ value?: unknown }>;
-              };
-              return data?.entries?.[0]?.value ? true : null;
-            } catch {
-              return null;
-            }
-          }),
-        );
-        results.forEach((r, idx) => {
-          if (r.status === "fulfilled" && r.value) verified.add(batch[idx]!);
-        });
-      }
-      filtered = filtered.filter((c) => c.nearAccountId && verified.has(c.nearAccountId));
-    }
-
-    // enrich profiles after filtering (fewer pubkeys to resolve)
-    if (opts.enrich) {
-      const pubkeys = [...new Set(filtered.map((c) => c.pubkey))];
-      const adapter = this.getAdapter("standard") as StandardAdapter;
-      const BATCH = 5;
-      for (let i = 0; i < pubkeys.length; i += BATCH) {
-        const batch = pubkeys.slice(i, i + BATCH);
-        const profiles = await Promise.allSettled(batch.map((pk) => adapter.getProfile(pk)));
-        const profileMap = new Map<string, any>();
-        profiles.forEach((r, idx) => {
-          if (r.status === "fulfilled" && r.value) profileMap.set(batch[idx]!, r.value);
-        });
-        for (const c of filtered) {
-          if (profileMap.has(c.pubkey)) (c as any).profile = profileMap.get(c.pubkey);
-        }
-      }
-    }
-
-    return filtered;
-  }
-
-  /** Publish a pre-signed event (signed client-side by extension/nsec) */
-  async publishSigned(opts: {
+    enrich?: boolean;
+    requireBound?: boolean;
+    requireVerified?: boolean;
+  }) => Effect.Effect<NostrComment[], ORPCError<"BAD_REQUEST", unknown>>;
+  readonly publishSigned: (opts: {
     event: NostrEvent;
     target: string;
     targetType: string;
-    adapterType: string;
-  }): Promise<PublishResult> {
-    // Bypass adapter publish — use raw ws directly to avoid bundling issues (parity with upstream)
-    const adapter = this.getAdapter(opts.adapterType);
-    const relays = (adapter as any).relays ?? [
-      "wss://nos.lol",
-      "wss://relay.damus.io",
-      "wss://relay.primal.net",
-    ];
-    const statuses: Array<{ relay: string; success: boolean }> = [];
-
-    await Promise.all(
-      relays.map(
-        (url: string) =>
-          new Promise<void>((resolve) => {
-            const socket = new WebSocket(url);
-            const timeout = setTimeout(() => {
-              statuses.push({ relay: url, success: false });
-              socket.close();
-              resolve();
-            }, 5000);
-            socket.on("open", () => socket.send(JSON.stringify(["EVENT", opts.event])));
-            socket.on("message", (data: any) => {
-              const msg = JSON.parse(data.toString());
-              console.log("[wsPublish] relay response:", url, JSON.stringify(msg));
-              if (msg[0] === "OK") {
-                statuses.push({ relay: url, success: msg[2] === true });
-                clearTimeout(timeout);
-                socket.close();
-                resolve();
-              }
-            });
-            socket.on("error", (err: any) => {
-              console.error("[wsPublish] relay error:", url, err?.message || err);
-              statuses.push({ relay: url, success: false });
-              clearTimeout(timeout);
-              resolve();
-            });
-          }),
-      ),
-    );
-
-    return {
-      eventId: (opts.event as any).id ?? "",
-      statuses,
-    };
-  }
-
-  /** List Buzz channels */
-  async listChannels(adapterType?: string): Promise<ChannelInfo[]> {
-    const type = adapterType ?? "buzz";
-    const adapter = this.getAdapter(type);
-    if (!(adapter instanceof BuzzAdapter)) {
-      throw new Error("listChannels only works with Buzz adapter");
-    }
-    const events = await adapter.listChannels();
-    return events.map((e: NostrEvent) => {
-      const id = e.tags.find((t: string[]) => t[0] === "d")?.[1];
-      const name = e.tags.find((t: string[]) => t[0] === "name")?.[1];
-      return { id: id ?? e.id, name: name ?? null };
-    });
-  }
-
-  // ── nostr-core: low-level relay access ──
-
-  /** Raw relay query — any filter shape */
-  async rawQuery(opts: {
-    filter: Record<string, unknown>;
+    adapterType: AdapterType;
+  }) => Effect.Effect<PublishResult, ORPCError<"BAD_REQUEST", unknown>>;
+  readonly listChannels: (
+    adapterType?: AdapterType,
+  ) => Effect.Effect<ChannelInfo[], ORPCError<"BAD_REQUEST", unknown>>;
+  readonly rawQuery: (opts: {
+    filter: NostrFilter;
     relays?: string[];
-  }): Promise<NostrEvent[]> {
-    const adapter = this.getAdapter("standard") as StandardAdapter;
-    // Use the standard adapter's raw pool for raw queries
-    return adapter.queryRaw(opts.filter, opts.relays);
-  }
-
-  /** Publish any pre-signed event (any kind) */
-  async rawPublish(opts: { event: NostrEvent; relays?: string[] }): Promise<PublishResult> {
-    const relays = opts.relays ?? [
-      "wss://nos.lol",
-      "wss://relay.damus.io",
-      "wss://relay.primal.net",
-    ];
-    const statuses: Array<{ relay: string; success: boolean }> = [];
-
-    await Promise.all(
-      relays.map(
-        (url: string) =>
-          new Promise<void>((resolve) => {
-            const socket = new WebSocket(url);
-            const timeout = setTimeout(() => {
-              statuses.push({ relay: url, success: false });
-              socket.close();
-              resolve();
-            }, 5000);
-            socket.on("open", () => socket.send(JSON.stringify(["EVENT", opts.event])));
-            socket.on("message", (data: any) => {
-              const msg = JSON.parse(data.toString());
-              if (msg[0] === "OK") {
-                statuses.push({ relay: url, success: msg[2] === true });
-                clearTimeout(timeout);
-                socket.close();
-                resolve();
-              }
-            });
-            socket.on("error", () => {
-              statuses.push({ relay: url, success: false });
-              clearTimeout(timeout);
-              resolve();
-            });
-          }),
-      ),
-    );
-
-    return {
-      eventId: (opts.event as any).id ?? "",
-      statuses,
-    };
-  }
-
-  /** Fetch Nostr kind 0 profile for a pubkey */
-  async getProfile(pubkey: string): Promise<{
-    pubkey: string;
-    name?: string | null;
-    picture?: string | null;
-    about?: string | null;
-    nip05?: string | null;
-    website?: string | null;
-  } | null> {
-    const adapter = this.getAdapter("standard") as StandardAdapter;
-    return adapter.getProfile(pubkey);
-  }
-
-  close(): void {
-    for (const adapter of this.#adapters.values()) {
-      adapter.close();
-    }
-    this.#adapters.clear();
-  }
-
-  #toComment(
-    event: NostrEvent,
-    target: string,
-    targetType: string,
-    source: "standard" | "buzz",
-  ): NostrComment {
-    return {
-      id: event.id,
-      pubkey: event.pubkey,
-      content: event.content,
-      target,
-      targetType,
-      nearAccountId: event.tags.find((t) => t[0] === "near_account")?.[1],
-      parentEventId: event.tags.find((t) => t[0] === "e" && t[3] === "reply")?.[1],
-      createdAt: event.created_at,
-      tags: event.tags,
-      source,
-    };
-  }
+  }) => Effect.Effect<NostrEvent[], never>;
+  readonly rawPublish: (opts: {
+    event: NostrEvent;
+    relays?: string[];
+  }) => Effect.Effect<PublishResult, ORPCError<"BAD_REQUEST", unknown>>;
+  readonly getProfile: (pubkey: string) => Effect.Effect<NostrProfile | null, never>;
 }
+
+export class NostrCommentService extends Context.Tag("nostr/NostrCommentService")<
+  NostrCommentService,
+  NostrCommentServiceShape
+>() {}
+
+const badRequest = (message: string): ORPCError<"BAD_REQUEST", unknown> =>
+  new ORPCError("BAD_REQUEST", { message, data: {} });
+
+/**
+ * Reject a client-signed comment whose `near_target` tag does not match
+ * the composite of (targetType, target) the request claims. Without this,
+ * callers can publish events with tags that don't match the request body --
+ * silently unfetchable, polluting relay indexes with miscategorized events.
+ * Returns an ORPCError so the caller can short-circuit before publishing.
+ */
+export const assertCommentTagsMatchRequest = (
+  event: NostrEvent,
+  target: string,
+  targetType: string,
+): ORPCError<"BAD_REQUEST", unknown> | null => {
+  const expected = nearTargetKey(targetType, target);
+  const actual = findNearTargetTag(event);
+  if (actual === undefined) {
+    return badRequest(
+      `Comment event is missing the required 'near_target' tag (expected '${expected}')`,
+    );
+  }
+  if (actual !== expected) {
+    return badRequest(
+      `Comment event's 'near_target' tag ('${actual}') does not match the request ('${expected}')`,
+    );
+  }
+  return null;
+};
+
+const toComment = (
+  event: NostrEvent,
+  target: string,
+  targetType: string,
+  source: AdapterType,
+): NostrComment => ({
+  id: event.id,
+  pubkey: event.pubkey,
+  content: event.content,
+  target,
+  targetType,
+  nearAccountId: event.tags.find((t) => t[0] === "near_account")?.[1],
+  parentEventId: event.tags.find((t) => t[0] === "e" && t[3] === "reply")?.[1],
+  createdAt: event.created_at,
+  tags: event.tags,
+  source,
+});
+
+const emptyQueryResult: NostrEvent[] = [];
+const emptyProfile: NostrProfile | null = null;
+
+/**
+ * Read paths swallow the underlying error but log it on WARNING so the
+ * fail-soft empty result is not silent. Mirrors the pattern used in
+ * BindingService.readKv and .readProfile -- previous code in this file
+ * had a tryPromise catch + orElseSucceed double-fallback which was
+ * removed in this commit.
+ */
+const catchAllEmpty =
+  <T>(fallback: T, label: string) =>
+  (error: unknown) =>
+    Effect.gen(function* () {
+      yield* Effect.logWarning(`[Nostr] ${label} failed`, { error: String(error) });
+      return fallback;
+    });
+
+export const NostrCommentServiceLive = Layer.scoped(
+  NostrCommentService,
+  Effect.gen(function* () {
+    const cfg: NostrResolvedConfig = yield* NostrConfigTag;
+    const standard = yield* StandardAdapterService;
+    const buzzOption = yield* BuzzAdapterService;
+
+    const getAdapter = (
+      type: AdapterType,
+    ): Effect.Effect<StandardAdapter | BuzzAdapter, ORPCError<"BAD_REQUEST", unknown>> => {
+      if (type === "buzz") {
+        return Option.isNone(buzzOption)
+          ? Effect.fail(badRequest(`Adapter 'buzz' is not configured`))
+          : Effect.succeed(buzzOption.value);
+      }
+      return Effect.succeed(standard);
+    };
+
+    const listComments: NostrCommentServiceShape["listComments"] = (opts) =>
+      Effect.gen(function* () {
+        const adapter = yield* getAdapter(opts.adapterType);
+        const queried = yield* Effect.tryPromise({
+          try: () =>
+            adapter.query({
+              target: opts.target,
+              targetType: opts.targetType,
+              clientName: cfg.clientName,
+              limit: opts.limit,
+              since: opts.since,
+            }),
+          catch: (e: unknown) => e,
+        }).pipe(Effect.catchAll(catchAllEmpty({ events: [] }, "adapter.query")));
+
+        let filtered = queried.events.map((e) =>
+          toComment(e, opts.target, opts.targetType, opts.adapterType),
+        );
+
+        if (opts.requireBound) {
+          filtered = filtered.filter((c) => c.nearAccountId);
+        }
+        if (opts.requireVerified) {
+          const accounts = [
+            ...new Set(filtered.filter((c) => c.nearAccountId).map((c) => c.nearAccountId!)),
+          ];
+          const verifications = yield* Effect.forEach(
+            accounts,
+            (acc) => readKvBindingEntry(cfg, acc).pipe(Effect.map((e) => e !== null)),
+            { concurrency: 5 },
+          );
+          const verified = new Set(accounts.filter((_, i) => verifications[i]));
+          filtered = filtered.filter((c) => c.nearAccountId && verified.has(c.nearAccountId));
+        }
+        if (opts.enrich) {
+          const pubkeys = [...new Set(filtered.map((c) => c.pubkey))];
+          const profiles = yield* Effect.forEach(
+            pubkeys,
+            (pk) =>
+              Effect.tryPromise({
+                try: () => standard.getProfile(pk),
+                catch: (e: unknown) => e,
+              }).pipe(
+                Effect.catchAll(catchAllEmpty(null as NostrProfile | null, "standard.getProfile")),
+              ),
+            { concurrency: 5 },
+          );
+          const profileMap = new Map(pubkeys.map((pk, i) => [pk, profiles[i]] as const));
+          for (const c of filtered) {
+            const p = profileMap.get(c.pubkey);
+            if (p) c.profile = p;
+          }
+        }
+        return filtered;
+      });
+
+    const publishSigned: NostrCommentServiceShape["publishSigned"] = (opts) =>
+      Effect.gen(function* () {
+        const validationError = assertCommentTagsMatchRequest(
+          opts.event,
+          opts.target,
+          opts.targetType,
+        );
+        if (validationError) {
+          return yield* Effect.fail(validationError);
+        }
+        const adapter = yield* getAdapter(opts.adapterType);
+        const result = yield* Effect.tryPromise({
+          try: () => adapter.publishSigned(opts.event),
+          catch: (e: unknown) =>
+            new ORPCError("BAD_REQUEST", {
+              message: e instanceof Error ? e.message : String(e),
+              data: {},
+            }),
+        });
+        const statuses = [...result.statuses].map(([relay, success]) => ({
+          relay,
+          success,
+        }));
+        return { eventId: result.event.id, statuses };
+      });
+
+    const listChannels: NostrCommentServiceShape["listChannels"] = (adapterType) =>
+      Effect.gen(function* () {
+        const type: AdapterType = adapterType ?? "buzz";
+        const adapter = yield* getAdapter(type);
+        if (!(adapter instanceof BuzzAdapter)) return [];
+        const events = yield* Effect.tryPromise({
+          try: () => adapter.listChannels(),
+          catch: (e: unknown) => e,
+        }).pipe(Effect.catchAll(catchAllEmpty([] as NostrEvent[], "adapter.listChannels")));
+        return events.map((e) => {
+          const id = e.tags.find((t) => t[0] === "d")?.[1];
+          const name = e.tags.find((t) => t[0] === "name")?.[1];
+          return { id: id ?? e.id, name: name ?? null };
+        });
+      });
+
+    const rawQuery: NostrCommentServiceShape["rawQuery"] = (opts) =>
+      Effect.tryPromise({
+        try: () => standard.queryRaw(opts.filter, opts.relays),
+        catch: (e: unknown) => e,
+      }).pipe(Effect.catchAll(catchAllEmpty(emptyQueryResult, "standard.queryRaw")));
+
+    const rawPublish: NostrCommentServiceShape["rawPublish"] = (opts) =>
+      Effect.gen(function* () {
+        const result = yield* Effect.tryPromise({
+          try: () => standard.publishSigned(opts.event, opts.relays),
+          catch: (e: unknown) =>
+            new ORPCError("BAD_REQUEST", {
+              message: e instanceof Error ? e.message : String(e),
+              data: {},
+            }),
+        });
+        const statuses = [...result.statuses].map(([relay, success]) => ({
+          relay,
+          success,
+        }));
+        return { eventId: result.event.id, statuses };
+      });
+
+    const getProfile: NostrCommentServiceShape["getProfile"] = (pubkey) =>
+      Effect.tryPromise({
+        try: () => standard.getProfile(pubkey),
+        catch: (e: unknown) => e,
+      }).pipe(
+        Effect.catchAll((error) =>
+          Effect.gen(function* () {
+            yield* Effect.logWarning("[Nostr] standard.getProfile failed", {
+              pubkey,
+              error: String(error),
+            });
+            return emptyProfile;
+          }),
+        ),
+      );
+
+    return {
+      listComments,
+      publishSigned,
+      listChannels,
+      rawQuery,
+      rawPublish,
+      getProfile,
+    } as const;
+  }),
+);

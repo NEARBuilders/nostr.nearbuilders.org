@@ -58,3 +58,20 @@ export const Kind = {
 export const COMMENT_KINDS = [Kind.COMMENT, Kind.TEXT_NOTE] as const;
 
 export const DEFAULT_RELAYS = ["wss://relay.damus.io", "wss://nos.lol", "wss://relay.primal.net"];
+
+export const parseTargetString = (
+  raw: string,
+  fallbackType: NearNostrTargetType = "project",
+): NearNostrTarget | null => {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const idx = trimmed.indexOf(":");
+  if (idx === -1) return { type: fallbackType, id: trimmed };
+  const type = trimmed.slice(0, idx);
+  const id = trimmed.slice(idx + 1);
+  if (!type || !id) return null;
+  return { type: type as NearNostrTargetType, id };
+};
+
+export const formatTargetString = (target: NearNostrTarget): string =>
+  `${target.type}:${target.id}`;

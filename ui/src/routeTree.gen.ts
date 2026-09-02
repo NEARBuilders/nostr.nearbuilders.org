@@ -17,6 +17,7 @@ import { Route as LayoutPublicSkillRouteImport } from './routes/_layout/_public/
 import { Route as LayoutPublicLoginRouteImport } from './routes/_layout/_public/login'
 import { Route as LayoutPublicAboutRouteImport } from './routes/_layout/_public/about'
 import { Route as LayoutAuthenticatedSettingsRouteImport } from './routes/_layout/_authenticated/settings'
+import { Route as LayoutAuthenticatedNostrLinkRouteImport } from './routes/_layout/_authenticated/nostr-link'
 import { Route as LayoutAuthenticatedNostrRouteImport } from './routes/_layout/_authenticated/nostr'
 import { Route as LayoutAuthenticatedHomeRouteImport } from './routes/_layout/_authenticated/home'
 import { Route as LayoutAuthenticatedAdminRouteImport } from './routes/_layout/_authenticated/admin'
@@ -67,6 +68,12 @@ const LayoutAuthenticatedSettingsRoute =
   LayoutAuthenticatedSettingsRouteImport.update({
     id: '/settings',
     path: '/settings',
+    getParentRoute: () => LayoutAuthenticatedRoute,
+  } as any)
+const LayoutAuthenticatedNostrLinkRoute =
+  LayoutAuthenticatedNostrLinkRouteImport.update({
+    id: '/nostr-link',
+    path: '/nostr-link',
     getParentRoute: () => LayoutAuthenticatedRoute,
   } as any)
 const LayoutAuthenticatedNostrRoute =
@@ -152,6 +159,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof LayoutAuthenticatedAdminRouteWithChildren
   '/home': typeof LayoutAuthenticatedHomeRoute
   '/nostr': typeof LayoutAuthenticatedNostrRoute
+  '/nostr-link': typeof LayoutAuthenticatedNostrLinkRoute
   '/settings': typeof LayoutAuthenticatedSettingsRouteWithChildren
   '/about': typeof LayoutPublicAboutRoute
   '/login': typeof LayoutPublicLoginRoute
@@ -171,6 +179,7 @@ export interface FileRoutesByTo {
   '/': typeof LayoutPublicIndexRoute
   '/home': typeof LayoutAuthenticatedHomeRoute
   '/nostr': typeof LayoutAuthenticatedNostrRoute
+  '/nostr-link': typeof LayoutAuthenticatedNostrLinkRoute
   '/about': typeof LayoutPublicAboutRoute
   '/login': typeof LayoutPublicLoginRoute
   '/skill': typeof LayoutPublicSkillRoute
@@ -193,6 +202,7 @@ export interface FileRoutesById {
   '/_layout/_authenticated/admin': typeof LayoutAuthenticatedAdminRouteWithChildren
   '/_layout/_authenticated/home': typeof LayoutAuthenticatedHomeRoute
   '/_layout/_authenticated/nostr': typeof LayoutAuthenticatedNostrRoute
+  '/_layout/_authenticated/nostr-link': typeof LayoutAuthenticatedNostrLinkRoute
   '/_layout/_authenticated/settings': typeof LayoutAuthenticatedSettingsRouteWithChildren
   '/_layout/_public/about': typeof LayoutPublicAboutRoute
   '/_layout/_public/login': typeof LayoutPublicLoginRoute
@@ -216,6 +226,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/home'
     | '/nostr'
+    | '/nostr-link'
     | '/settings'
     | '/about'
     | '/login'
@@ -235,6 +246,7 @@ export interface FileRouteTypes {
     | '/'
     | '/home'
     | '/nostr'
+    | '/nostr-link'
     | '/about'
     | '/login'
     | '/skill'
@@ -256,6 +268,7 @@ export interface FileRouteTypes {
     | '/_layout/_authenticated/admin'
     | '/_layout/_authenticated/home'
     | '/_layout/_authenticated/nostr'
+    | '/_layout/_authenticated/nostr-link'
     | '/_layout/_authenticated/settings'
     | '/_layout/_public/about'
     | '/_layout/_public/login'
@@ -333,6 +346,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof LayoutAuthenticatedSettingsRouteImport
+      parentRoute: typeof LayoutAuthenticatedRoute
+    }
+    '/_layout/_authenticated/nostr-link': {
+      id: '/_layout/_authenticated/nostr-link'
+      path: '/nostr-link'
+      fullPath: '/nostr-link'
+      preLoaderRoute: typeof LayoutAuthenticatedNostrLinkRouteImport
       parentRoute: typeof LayoutAuthenticatedRoute
     }
     '/_layout/_authenticated/nostr': {
@@ -473,6 +493,7 @@ interface LayoutAuthenticatedRouteChildren {
   LayoutAuthenticatedAdminRoute: typeof LayoutAuthenticatedAdminRouteWithChildren
   LayoutAuthenticatedHomeRoute: typeof LayoutAuthenticatedHomeRoute
   LayoutAuthenticatedNostrRoute: typeof LayoutAuthenticatedNostrRoute
+  LayoutAuthenticatedNostrLinkRoute: typeof LayoutAuthenticatedNostrLinkRoute
   LayoutAuthenticatedSettingsRoute: typeof LayoutAuthenticatedSettingsRouteWithChildren
   LayoutAuthenticatedAcceptInvitationIdRoute: typeof LayoutAuthenticatedAcceptInvitationIdRoute
   LayoutAuthenticatedOrganizationsSlugRoute: typeof LayoutAuthenticatedOrganizationsSlugRoute
@@ -484,6 +505,7 @@ const LayoutAuthenticatedRouteChildren: LayoutAuthenticatedRouteChildren = {
   LayoutAuthenticatedAdminRoute: LayoutAuthenticatedAdminRouteWithChildren,
   LayoutAuthenticatedHomeRoute: LayoutAuthenticatedHomeRoute,
   LayoutAuthenticatedNostrRoute: LayoutAuthenticatedNostrRoute,
+  LayoutAuthenticatedNostrLinkRoute: LayoutAuthenticatedNostrLinkRoute,
   LayoutAuthenticatedSettingsRoute:
     LayoutAuthenticatedSettingsRouteWithChildren,
   LayoutAuthenticatedAcceptInvitationIdRoute:
