@@ -18,7 +18,12 @@ const tags = [
 ];
 
 const event = finalizeEvent(
-  { kind: 1111, created_at: Math.floor(Date.now() / 1000), tags, content: `spoof test as ${account}` },
+  {
+    kind: 1111,
+    created_at: Math.floor(Date.now() / 1000),
+    tags,
+    content: `spoof test as ${account}`,
+  },
   sk,
 );
 

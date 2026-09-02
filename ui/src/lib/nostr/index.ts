@@ -19,4 +19,4 @@ export type {
   NostrEvent,
   NostrFilter,
 } from "./types";
-export { DEFAULT_RELAYS, Kind, formatTargetString, parseTargetString } from "./types";
+export { DEFAULT_RELAYS, formatTargetString, Kind, parseTargetString } from "./types";

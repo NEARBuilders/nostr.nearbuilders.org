@@ -47,13 +47,7 @@ export function NostrCommentForm({
           disabled={!content.trim() || loading}
           size="sm"
         >
-          {replyTo
-            ? loading
-              ? "Replying…"
-              : "Reply"
-            : loading
-              ? "Publishing…"
-              : submitLabel}
+          {replyTo ? (loading ? "Replying…" : "Reply") : loading ? "Publishing…" : submitLabel}
         </Button>
       </div>
     </div>
