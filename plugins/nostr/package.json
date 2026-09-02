@@ -1,6 +1,6 @@
 {
   "name": "@every-plugin/nostr",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Nostr integration plugin — NEAR account binding, comments, relay operations",
   "type": "module",
   "exports": {
