@@ -4,7 +4,6 @@ import { nip19 } from "nostr-tools";
 
 const DEFAULT_KV_API = "https://kv.main.fastnear.com";
 const DEFAULT_BINDING_CONTRACT = "contextual.near";
-const DEFAULT_STANDARD_RELAYS = "wss://nos.lol,wss://relay.damus.io,wss://relay.primal.net";
 const DEFAULT_BUZZ_RELAYS = "wss://nearbuilders.communities.buzz.xyz";
 
 export const NostrVariablesSchema = z.object({
@@ -18,7 +17,7 @@ export const NostrVariablesSchema = z.object({
     .describe("Client identifier tag attached to each published event"),
   STANDARD_RELAYS: z
     .string()
-    .default(DEFAULT_STANDARD_RELAYS)
+    .optional()
     .describe("Comma-separated standard Nostr relays for the standard comment adapter"),
   BUZZ_RELAYS: z.string().default(DEFAULT_BUZZ_RELAYS).describe("Comma-separated Buzz relay URLs"),
   KV_API_URL: z.string().default(DEFAULT_KV_API).describe("FastNear KV API URL for bindings"),
@@ -79,15 +78,30 @@ export function resolveNostrConfig(
   variables: NostrVariables,
   secrets: NostrSecrets,
 ): NostrResolvedConfig {
+  const standardRelays = [
+    ...new Set(
+      variables.STANDARD_RELAYS?.trim()
+        ? variables.STANDARD_RELAYS.split(",")
+            .map((url) => url.trim())
+            .filter(Boolean)
+        : variables.relays,
+    ),
+  ];
+  for (const relay of standardRelays) {
+    const url = new URL(relay);
+    if (!["ws:", "wss:"].includes(url.protocol) || url.username || url.password) {
+      throw new Error("Standard relays must be ws:// or wss:// URLs without credentials");
+    }
+  }
+  if (standardRelays.length === 0 || standardRelays.length > 10) {
+    throw new Error("Configure between one and ten standard relays");
+  }
   return {
-    relays: variables.relays,
+    relays: standardRelays,
     clientName: variables.clientName,
     kvApiUrl: variables.KV_API_URL.trim() || DEFAULT_KV_API,
     bindingContract: variables.BINDING_CONTRACT.trim() || DEFAULT_BINDING_CONTRACT,
-    standardRelays: (variables.STANDARD_RELAYS || DEFAULT_STANDARD_RELAYS)
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean),
+    standardRelays,
     buzzRelays: (variables.BUZZ_RELAYS || DEFAULT_BUZZ_RELAYS)
       .split(",")
       .map((s) => s.trim())

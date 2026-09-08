@@ -2,6 +2,7 @@ import { createPlugin } from "every-plugin";
 import { Effect, Layer } from "every-plugin/effect";
 import type { DecoratedMiddleware } from "every-plugin/orpc";
 import { ORPCError } from "every-plugin/orpc";
+import type { z } from "every-plugin/zod";
 import { contract } from "./contract";
 import type { AuthContext } from "./lib/auth";
 import { createAuthMiddleware } from "./lib/auth";
@@ -13,6 +14,7 @@ import {
   resolveNostrConfig,
 } from "./lib/nostr-config";
 import type { PluginsClient } from "./lib/plugins-client.gen";
+import type { NostrFilterSchema } from "./lib/schemas";
 import { BuzzAdapterLive, StandardAdapterLive } from "./nostr-core/adapters";
 import type { NostrFilter } from "./nostr-core/types";
 import { BindingService, BindingServiceLive } from "./services/binding";
@@ -157,31 +159,26 @@ export default createPlugin.withPlugins<PluginsClient>()({
         runEffect(comments.listChannels("buzz")).then((data) => ({ data })),
       ),
 
-      queryEvents: builder.queryEvents.handler(({ input }) => {
-        const filter: NostrFilter = {};
-        if (input.filter.kinds) filter.kinds = input.filter.kinds;
-        if (input.filter.authors) filter.authors = input.filter.authors;
-        if (input.filter.ids) filter.ids = input.filter.ids;
-        if (input.filter.since) filter.since = input.filter.since;
-        if (input.filter.until) filter.until = input.filter.until;
-        if (input.filter.limit) filter.limit = input.filter.limit;
-        if (input.filter.tags) {
-          for (const { tag, values } of input.filter.tags) {
-            filter[`#${tag}`] = values;
-          }
-        }
-        return runEffect(comments.rawQuery({ filter, relays: input.relays })).then((events) => ({
-          events,
-        }));
+      queryEvents: builder.queryEvents.handler(({ input, signal }) =>
+        runEffect(
+          comments.rawQuery({ filter: toRelayFilter(input.filter), relays: input.relays, signal }),
+        ),
+      ),
+
+      subscribeEvents: builder.subscribeEvents.handler(async function* ({ input, signal }) {
+        const stream = await runEffect(
+          comments.rawSubscribe({
+            filter: toRelayFilter(input.filter),
+            relays: input.relays,
+            signal,
+          }),
+        );
+        yield* stream;
       }),
 
-      publishEvent: builder.publishEvent
-        .use(mw.requireAuth)
-        .handler(({ input }) =>
-          runEffect(comments.rawPublish({ event: input.event, relays: input.relays })).then(
-            (result) => ({ eventId: result.eventId, statuses: result.statuses }),
-          ),
-        ),
+      publishEvent: builder.publishEvent.handler(({ input }) =>
+        runEffect(comments.rawPublish({ event: input.event, relays: input.relays })),
+      ),
 
       getProfile: builder.getProfile.handler(({ input }) =>
         runEffect(comments.getProfile(input.pubkey)),
@@ -189,3 +186,13 @@ export default createPlugin.withPlugins<PluginsClient>()({
     };
   },
 });
+
+function toRelayFilter(input: z.infer<typeof NostrFilterSchema>): NostrFilter {
+  const { tags, ...filter } = input;
+  const result: NostrFilter = { ...filter };
+  for (const { tag, values } of tags ?? []) {
+    const key = `#${tag}` as const;
+    result[key] = [...new Set([...(result[key] ?? []), ...values])];
+  }
+  return result;
+}

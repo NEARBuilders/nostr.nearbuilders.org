@@ -42,6 +42,7 @@
     "deploy": "bun run build:types && DEPLOY=true rspack build",
     "dev": "bun run build:types && rspack serve",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "test:bundle": "bun run build && vitest run --config vitest.bundle.config.ts"
   }
 }

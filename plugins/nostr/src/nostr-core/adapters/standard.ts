@@ -1,6 +1,8 @@
-import { SimplePool } from "nostr-tools/pool";
+import { SimplePool, useWebSocketImplementation } from "nostr-tools/pool";
 import { finalizeEvent, verifyEvent } from "nostr-tools/pure";
+import WebSocket from "ws";
 import type { NostrProfile } from "../../lib/schemas";
+import { RelayTransport } from "../relay-transport";
 import type { NostrEvent, NostrFilter, NostrSubscription } from "../types";
 import { nearTargetKey } from "../types";
 import type {
@@ -11,6 +13,8 @@ import type {
   SubscribeAdapterOptions,
 } from "./types";
 
+useWebSocketImplementation(WebSocket);
+
 /** Comment kinds: NIP-22 dedicated comment kind + legacy kind 1 */
 const COMMENT_KINDS = [1111, 1] as const;
 const PUBLISH_KIND = 1111;
@@ -18,11 +22,13 @@ const PUBLISH_KIND = 1111;
 export class StandardAdapter implements RelayAdapter {
   readonly type = "standard" as const;
   readonly pool: SimplePool;
+  readonly transport: RelayTransport;
 
   constructor(
     public relays: string[] = ["wss://nos.lol", "wss://relay.damus.io", "wss://relay.primal.net"],
   ) {
-    this.pool = new SimplePool();
+    this.pool = new SimplePool({ enablePing: true, enableReconnect: false });
+    this.transport = new RelayTransport(this.pool);
   }
 
   async publish(opts: PublishAdapterOptions): Promise<AdapterPublishResult> {
@@ -55,6 +61,15 @@ export class StandardAdapter implements RelayAdapter {
   }
 
   async publishSigned(event: NostrEvent, relays?: string[]): Promise<AdapterPublishResult> {
+    event = {
+      id: event.id,
+      pubkey: event.pubkey,
+      kind: event.kind,
+      created_at: event.created_at,
+      tags: event.tags.map((tag) => [...tag]),
+      content: event.content,
+      sig: event.sig,
+    };
     if (!verifyEvent(event)) {
       throw new Error("Invalid Nostr event signature");
     }
@@ -131,12 +146,16 @@ export class StandardAdapter implements RelayAdapter {
   }
 
   close(): void {
-    this.pool.close(this.relays);
+    this.transport.close();
+    this.pool.destroy();
   }
 
-  async queryRaw(filter: NostrFilter, relays?: string[]): Promise<NostrEvent[]> {
-    const relayList = relays ?? this.relays;
-    return this.pool.querySync(relayList, filter);
+  queryRaw(filter: NostrFilter, relays?: string[], signal?: AbortSignal) {
+    return this.transport.query(filter, relays ?? this.relays, signal);
+  }
+
+  streamRaw(filter: NostrFilter, relays?: string[], signal?: AbortSignal) {
+    return this.transport.stream(filter, relays ?? this.relays, signal);
   }
 
   async getProfile(pubkey: string): Promise<NostrProfile | null> {
