@@ -43,21 +43,7 @@ export class StandardAdapter implements RelayAdapter {
       opts.secretKey,
     );
 
-    const relays = opts.relays ?? this.relays;
-    const results = this.pool.publish(relays, event);
-    const statuses = new Map<string, boolean>();
-    await Promise.allSettled(
-      results.map(async (p, i) => {
-        try {
-          await p;
-          statuses.set(relays[i]!, true);
-        } catch {
-          statuses.set(relays[i]!, false);
-        }
-      }),
-    );
-
-    return { event, statuses };
+    return this.publishSigned(event, opts.relays);
   }
 
   async publishSigned(event: NostrEvent, relays?: string[]): Promise<AdapterPublishResult> {
@@ -74,15 +60,15 @@ export class StandardAdapter implements RelayAdapter {
       throw new Error("Invalid Nostr event signature");
     }
     const relayList = relays ?? this.relays;
-    const results = this.pool.publish(relayList, event);
     const statuses = new Map<string, boolean>();
-    await Promise.allSettled(
-      results.map(async (p, i) => {
+    await Promise.all(
+      relayList.map(async (url) => {
         try {
-          await p;
-          statuses.set(relayList[i]!, true);
+          const relay = await this.pool.ensureRelay(url, { connectionTimeout: 5_000 });
+          await relay.publish(event);
+          statuses.set(url, true);
         } catch {
-          statuses.set(relayList[i]!, false);
+          statuses.set(url, false);
         }
       }),
     );

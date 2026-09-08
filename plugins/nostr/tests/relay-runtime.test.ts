@@ -13,6 +13,24 @@ const rawFilter = {
   ],
 };
 
+it("reports publishing failure when the configured relay cannot be reached", async () => {
+  const relay = new TestRelay();
+  await relay.start();
+  const relayUrl = relay.url;
+  await relay.stop();
+  const runtime = createPluginRuntime({ registry: { nostr: { module: Plugin } } });
+  try {
+    const plugin = await runtime.usePlugin("nostr", {
+      variables: { relays: [relayUrl] },
+      secrets: {},
+    });
+    const result = await plugin.createClient().publishEvent({ event: activityEvent(500) });
+    expect(result.statuses).toEqual([{ relay: relayUrl, success: false }]);
+  } finally {
+    await runtime.shutdown();
+  }
+});
+
 describe("Nostr relay operations through the plugin runtime", () => {
   let relay: TestRelay;
   let runtime: ReturnType<typeof createPluginRuntime>;
