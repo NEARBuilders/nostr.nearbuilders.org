@@ -1,6 +1,8 @@
-import { SimplePool } from "nostr-tools/pool";
+import { SimplePool, useWebSocketImplementation } from "nostr-tools/pool";
 import { finalizeEvent, verifyEvent } from "nostr-tools/pure";
+import WebSocket from "ws";
 import type { NostrProfile } from "../../lib/schemas";
+import { RelayTransport } from "../relay-transport";
 import type { NostrEvent, NostrFilter, NostrSubscription } from "../types";
 import { nearTargetKey } from "../types";
 import type {
@@ -11,6 +13,8 @@ import type {
   SubscribeAdapterOptions,
 } from "./types";
 
+useWebSocketImplementation(WebSocket);
+
 /** Comment kinds: NIP-22 dedicated comment kind + legacy kind 1 */
 const COMMENT_KINDS = [1111, 1] as const;
 const PUBLISH_KIND = 1111;
@@ -18,11 +22,13 @@ const PUBLISH_KIND = 1111;
 export class StandardAdapter implements RelayAdapter {
   readonly type = "standard" as const;
   readonly pool: SimplePool;
+  readonly transport: RelayTransport;
 
   constructor(
     public relays: string[] = ["wss://nos.lol", "wss://relay.damus.io", "wss://relay.primal.net"],
   ) {
-    this.pool = new SimplePool();
+    this.pool = new SimplePool({ enablePing: true, enableReconnect: false });
+    this.transport = new RelayTransport(this.pool);
   }
 
   async publish(opts: PublishAdapterOptions): Promise<AdapterPublishResult> {
@@ -37,37 +43,32 @@ export class StandardAdapter implements RelayAdapter {
       opts.secretKey,
     );
 
-    const relays = opts.relays ?? this.relays;
-    const results = this.pool.publish(relays, event);
-    const statuses = new Map<string, boolean>();
-    await Promise.allSettled(
-      results.map(async (p, i) => {
-        try {
-          await p;
-          statuses.set(relays[i]!, true);
-        } catch {
-          statuses.set(relays[i]!, false);
-        }
-      }),
-    );
-
-    return { event, statuses };
+    return this.publishSigned(event, opts.relays);
   }
 
   async publishSigned(event: NostrEvent, relays?: string[]): Promise<AdapterPublishResult> {
+    event = {
+      id: event.id,
+      pubkey: event.pubkey,
+      kind: event.kind,
+      created_at: event.created_at,
+      tags: event.tags.map((tag) => [...tag]),
+      content: event.content,
+      sig: event.sig,
+    };
     if (!verifyEvent(event)) {
       throw new Error("Invalid Nostr event signature");
     }
     const relayList = relays ?? this.relays;
-    const results = this.pool.publish(relayList, event);
     const statuses = new Map<string, boolean>();
-    await Promise.allSettled(
-      results.map(async (p, i) => {
+    await Promise.all(
+      relayList.map(async (url) => {
         try {
-          await p;
-          statuses.set(relayList[i]!, true);
+          const relay = await this.pool.ensureRelay(url, { connectionTimeout: 5_000 });
+          await relay.publish(event);
+          statuses.set(url, true);
         } catch {
-          statuses.set(relayList[i]!, false);
+          statuses.set(url, false);
         }
       }),
     );
@@ -131,12 +132,16 @@ export class StandardAdapter implements RelayAdapter {
   }
 
   close(): void {
-    this.pool.close(this.relays);
+    this.transport.close();
+    this.pool.destroy();
   }
 
-  async queryRaw(filter: NostrFilter, relays?: string[]): Promise<NostrEvent[]> {
-    const relayList = relays ?? this.relays;
-    return this.pool.querySync(relayList, filter);
+  queryRaw(filter: NostrFilter, relays?: string[], signal?: AbortSignal) {
+    return this.transport.query(filter, relays ?? this.relays, signal);
+  }
+
+  streamRaw(filter: NostrFilter, relays?: string[], signal?: AbortSignal) {
+    return this.transport.stream(filter, relays ?? this.relays, signal);
   }
 
   async getProfile(pubkey: string): Promise<NostrProfile | null> {
