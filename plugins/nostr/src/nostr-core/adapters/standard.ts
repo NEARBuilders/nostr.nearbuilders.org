@@ -13,7 +13,11 @@ import type {
   SubscribeAdapterOptions,
 } from "./types";
 
-useWebSocketImplementation(WebSocket);
+// Prefer the runtime's built-in WebSocket. Production runs on Bun, where the bundled
+// `ws` library fails every handshake: Bun's https client reports the 101 upgrade as a
+// 'response' event instead of 'upgrade', so ws aborts with "Unexpected server
+// response: 101". `ws` remains the fallback for runtimes without a global WebSocket.
+useWebSocketImplementation(globalThis.WebSocket ?? WebSocket);
 
 /** Comment kinds: NIP-22 dedicated comment kind + legacy kind 1 */
 const COMMENT_KINDS = [1111, 1] as const;
