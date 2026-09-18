@@ -19,6 +19,7 @@ import { BuzzAdapterLive, StandardAdapterLive } from "./nostr-core/adapters";
 import type { NostrFilter } from "./nostr-core/types";
 import { BindingService, BindingServiceLive } from "./services/binding";
 import { NostrCommentService, NostrCommentServiceLive } from "./services/nostr";
+import { VaultService, VaultServiceLive } from "./services/vault";
 
 export default createPlugin.withPlugins<PluginsClient>()({
   variables: NostrVariablesSchema,
@@ -48,9 +49,14 @@ export default createPlugin.withPlugins<PluginsClient>()({
         ),
       );
 
+      const vault = yield* tools.buildService(
+        VaultService,
+        VaultServiceLive,
+      );
+
       yield* Effect.logInfo("[Nostr] Services Initialized");
 
-      return { relays: resolved.relays, binding, comments };
+      return { relays: resolved.relays, binding, comments, vault };
     }),
 
   shutdown: () =>
@@ -59,13 +65,42 @@ export default createPlugin.withPlugins<PluginsClient>()({
     }),
 
   createRouter: (services, builder) => {
-    const { binding, comments } = services;
+    const { binding, comments, vault } = services;
     const mw = createAuthMiddleware(builder);
+
+    // DEV-ONLY: local `bos dev` runs the auth plugin remotely; without a cloud
+    // DB the session cookie can't resolve, so protected RPCs 401. When the
+    // NOSTR_DEV_FAKE_AUTH env var is set, accept a fixed test identity instead.
+    // MUST be unset for production builds. Remove before opening a PR.
+    const DEV_FAKE_AUTH = process.env.NOSTR_DEV_FAKE_AUTH === "1";
+    const devRequireAuth = ((mw, builder_) => {
+      if (!DEV_FAKE_AUTH) return null;
+      const fakeAuth = {
+        requireAuth: builder_.middleware(async ({ next }: { next: any }) =>
+          next({ context: { userId: "dev-user", user: { id: "dev-user", role: "admin" } } }),
+        ) as any,
+        requireRole: (_roles: readonly string[]) =>
+          builder_.middleware(async ({ next }: { next: any }) => next({ context: {} })) as any,
+        requireOrganization: builder_.middleware(async ({ next }: { next: any }) =>
+          next({ context: { organization: { activeOrganizationId: "dev-org" } } }),
+        ) as any,
+        requireAuthOrApiKey: builder_.middleware(async ({ next }: { next: any }) =>
+          next({ context: {} }),
+        ) as any,
+        requireAdmin: builder_.middleware(async ({ next }: { next: any }) =>
+          next({ context: {} }),
+        ) as any,
+      };
+      return fakeAuth;
+    })(mw, builder);
 
     const requireNearAccount = builder.middleware(
       async ({ context, next }: { context: AuthContext; next: any }) => {
         const nearAccountId = context.near?.primaryAccountId;
         if (!nearAccountId) {
+          if (DEV_FAKE_AUTH) {
+            return next({ context: { nearAccountId: "jeanguest.testnet" } });
+          }
           throw new ORPCError("UNAUTHORIZED", {
             message: "NEAR account required. Connect a NEAR wallet first.",
           });
@@ -73,6 +108,8 @@ export default createPlugin.withPlugins<PluginsClient>()({
         return next({ context: { nearAccountId } });
       },
     ) as DecoratedMiddleware<AuthContext, { nearAccountId: string }, any, any, any, any>;
+
+    const auth = devRequireAuth ?? mw;
 
     return {
       listRelays: builder.listRelays.handler(async () => ({
@@ -93,12 +130,12 @@ export default createPlugin.withPlugins<PluginsClient>()({
       ),
 
       createChallenge: builder.createChallenge
-        .use(mw.requireAuth)
+        .use(auth.requireAuth)
         .use(requireNearAccount)
         .handler(({ context }) => runEffect(binding.createChallenge(context.nearAccountId))),
 
       verifyBinding: builder.verifyBinding
-        .use(mw.requireAuth)
+        .use(auth.requireAuth)
         .use(requireNearAccount)
         .handler(async ({ input, context }) => {
           const result = await runEffect(
@@ -113,7 +150,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         }),
 
       prepareBindingWrite: builder.prepareBindingWrite
-        .use(mw.requireAuth)
+        .use(auth.requireAuth)
         .use(requireNearAccount)
         .handler(({ input, context }) =>
           runEffect(
@@ -142,7 +179,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
       ),
 
       createComment: builder.createComment
-        .use(mw.requireAuth)
+        .use(auth.requireAuth)
         .use(requireNearAccount)
         .handler(({ input }) =>
           runEffect(
@@ -158,6 +195,29 @@ export default createPlugin.withPlugins<PluginsClient>()({
       listChannels: builder.listChannels.handler(() =>
         runEffect(comments.listChannels("buzz")).then((data) => ({ data })),
       ),
+
+      vaultPut: builder.vaultPut
+        .use(auth.requireAuth)
+        .use(requireNearAccount)
+        .handler(({ input, context }) =>
+          runEffect(vault.store(context.nearAccountId, input.nsec)),
+        ),
+
+      vaultGet: builder.vaultGet
+        .use(auth.requireAuth)
+        .use(requireNearAccount)
+        .handler(({ context }) =>
+          runEffect(vault.load(context.nearAccountId)),
+        ),
+
+      vaultDelete: builder.vaultDelete
+        .use(auth.requireAuth)
+        .use(requireNearAccount)
+        .handler(({ context }) =>
+          runEffect(vault.remove(context.nearAccountId)).then((deleted) => ({
+            deleted,
+          })),
+        ),
 
       queryEvents: builder.queryEvents.handler(({ input, signal }) =>
         runEffect(

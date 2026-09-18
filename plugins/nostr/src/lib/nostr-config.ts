@@ -38,6 +38,19 @@ export const NostrSecretsSchema = z.object({
     .describe(
       "nsec/hex key for Buzz adapter NIP-42 relay auth (server identity only, never signs user events)",
     ),
+  VAULT_DATABASE_URL: z
+    .string()
+    .optional()
+    .describe(
+      "Postgres URL for the encrypted nsec vault. Omit to disable the vault.",
+    ),
+  VAULT_SECRET: z
+    .string()
+    .min(32)
+    .optional()
+    .describe(
+      "32+ char key-encryption secret (AES-256-GCM KEK source). Required when VAULT_DATABASE_URL is set. Generate: openssl rand -base64 32",
+    ),
 });
 
 export type NostrVariables = z.infer<typeof NostrVariablesSchema>;

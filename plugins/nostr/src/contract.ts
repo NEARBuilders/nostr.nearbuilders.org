@@ -226,6 +226,32 @@ export const contract = oc.router({
     .input(z.object({ pubkey: z.string().min(1) }))
     .output(ProfileSchema.nullable())
     .errors({ BAD_REQUEST }),
+
+  // ── Encrypted nsec vault (server-side AES-256-GCM at rest) ──
+  // Ownership always derives from the authenticated session; requests
+  // cannot address another account's vault entry.
+
+  vaultPut: oc
+    .route({ method: "POST", path: "/v1/nostr/vault", summary: "Store nsec encrypted at rest" })
+    .input(
+      z.object({
+        nsec: z.string().min(60).max(120).regex(/^nsec1/),
+      }),
+    )
+    .output(z.object({ createdAt: z.string() }))
+    .errors({ BAD_REQUEST, UNAUTHORIZED }),
+
+  vaultGet: oc
+    .route({ method: "GET", path: "/v1/nostr/vault", summary: "Recover stored nsec (owner session only)" })
+    .input(z.object({}))
+    .output(z.object({ nsec: z.string(), createdAt: z.string() }).nullable())
+    .errors({ UNAUTHORIZED }),
+
+  vaultDelete: oc
+    .route({ method: "DELETE", path: "/v1/nostr/vault" })
+    .input(z.object({}))
+    .output(z.object({ deleted: z.boolean() }))
+    .errors({ UNAUTHORIZED }),
 });
 
 export type ContractType = typeof contract;
