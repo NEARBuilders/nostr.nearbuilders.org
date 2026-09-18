@@ -1,10 +1,22 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { CheckCircle2, Key, LinkIcon, PlusCircle, XCircle } from "lucide-react";
+import {
+  CheckCircle2,
+  Copy,
+  Import,
+  Key,
+  KeyRound,
+  LinkIcon,
+  Puzzle,
+  Trash2,
+  XCircle,
+} from "lucide-react";
 import { npubEncode } from "nostr-tools/nip19";
+import { useState } from "react";
 import { useApiClient } from "@/app";
 import { Button } from "@/components/ui/button";
 import { InfoRow } from "@/components/ui/info-row";
+import type { NostrSession } from "@/lib/nostr";
 
 type BindingData = {
   npub: string;
@@ -13,24 +25,38 @@ type BindingData = {
   boundAt: number;
 };
 
+const SOURCE_LABEL: Record<NostrSession["source"], string> = {
+  generated: "generated (local)",
+  imported: "imported (local)",
+  extension: "NIP-07 extension",
+};
+
 type Props = {
   nearAccountId: string;
-  nostrPubkey: string;
+  session: NostrSession | null;
   bindingQueryKey: [string, string];
+  onConnectExtension: () => void;
   onGenerateKey: () => void;
+  onImportKey: (secret: string) => void;
+  onExportKey: () => void;
   onClearKey: () => void;
-  generating: boolean;
+  busy: boolean;
 };
 
 export function NostrIdentityCard({
   nearAccountId,
-  nostrPubkey,
+  session,
   bindingQueryKey,
+  onConnectExtension,
   onGenerateKey,
+  onImportKey,
+  onExportKey,
   onClearKey,
-  generating,
+  busy,
 }: Props) {
   const apiClient = useApiClient();
+  const [importOpen, setImportOpen] = useState(false);
+  const [importValue, setImportValue] = useState("");
 
   const bindingQuery = useQuery({
     queryKey: bindingQueryKey,
@@ -42,12 +68,21 @@ export function NostrIdentityCard({
   const npubFromHex = (hex: string) =>
     hex ? `${npubEncode(hex).slice(0, "npub1".length + 16)}…` : "—";
 
-  const localPubkey = nostrPubkey;
+  const localPubkey = session?.pubkey ?? "";
+  const hasLocalSecret = !!session?.secretKeyHex;
   const binding = bindingQuery.data ?? null;
   const linkedToLocal = binding?.npub === localPubkey && !!localPubkey;
   const linkedToDifferent = !!binding && !linkedToLocal;
-  const hasLocal = !!localPubkey;
+  const hasLocal = !!session;
   const isLinking = bindingQuery.isLoading && !bindingQuery.data;
+
+  const submitImport = () => {
+    const value = importValue.trim();
+    if (!value) return;
+    onImportKey(value);
+    setImportValue("");
+    setImportOpen(false);
+  };
 
   return (
     <div className="p-6 border border-border rounded-[10px] space-y-4 bg-card">
@@ -59,6 +94,7 @@ export function NostrIdentityCard({
       <div className="space-y-2">
         <InfoRow label="NEAR Account" value={nearAccountId} mono />
         <InfoRow label="Nostr Pubkey (local)" value={npubFromHex(localPubkey)} mono />
+        {session && <InfoRow label="Key Source" value={SOURCE_LABEL[session.source]} />}
         <InfoRow
           label="Binding"
           value={
@@ -74,41 +110,52 @@ export function NostrIdentityCard({
         {binding && (
           <InfoRow label="Bound At" value={new Date(binding.boundAt * 1000).toLocaleString()} />
         )}
-        <InfoRow
-          label="Local Key"
-          value={
-            <span className="flex items-center gap-1">
-              {hasLocal ? (
-                <>
-                  <CheckCircle2 className="h-3 w-3 text-green-500" />
-                  stored
-                </>
-              ) : (
-                <>
-                  <XCircle className="h-3 w-3 text-muted-foreground" />
-                  none
-                </>
-              )}
-            </span>
-          }
-        />
       </div>
 
       <div className="flex flex-wrap gap-2">
         {!hasLocal && (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onGenerateKey}
-            disabled={generating}
-          >
-            <PlusCircle className="h-3 w-3 mr-1" />
-            {generating ? "Generating…" : "Generate Key"}
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onConnectExtension}
+              disabled={busy}
+            >
+              <Puzzle className="h-3 w-3 mr-1" />
+              Use Extension
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onGenerateKey}
+              disabled={busy}
+            >
+              <KeyRound className="h-3 w-3 mr-1" />
+              Generate Key
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setImportOpen((v) => !v)}
+              disabled={busy}
+            >
+              <Import className="h-3 w-3 mr-1" />
+              Import Key
+            </Button>
+          </>
+        )}
+        {hasLocal && hasLocalSecret && (
+          <Button type="button" variant="outline" size="sm" onClick={onExportKey}>
+            <Copy className="h-3 w-3 mr-1" />
+            Copy nsec
           </Button>
         )}
         {hasLocal && (
           <Button type="button" variant="outline" size="sm" onClick={onClearKey}>
+            <Trash2 className="h-3 w-3 mr-1" />
             Clear Key
           </Button>
         )}
@@ -121,6 +168,42 @@ export function NostrIdentityCard({
           </Button>
         )}
       </div>
+
+      {importOpen && (
+        <div className="flex flex-col sm:flex-row gap-2">
+          <input
+            type="password"
+            value={importValue}
+            onChange={(e) => setImportValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") submitImport();
+            }}
+            placeholder="nsec1… or 64-char hex"
+            autoFocus
+            className="flex-1 rounded-md border border-input bg-background px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+          <Button
+            type="button"
+            variant="default"
+            size="sm"
+            onClick={submitImport}
+            disabled={busy || !importValue.trim()}
+          >
+            Import
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setImportOpen(false);
+              setImportValue("");
+            }}
+          >
+            Cancel
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

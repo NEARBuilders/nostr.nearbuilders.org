@@ -1,26 +1,19 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import {
-  Check,
-  CircleAlert,
-  KeyRound,
-  LinkIcon,
-  Loader2,
-  PenLine,
-  Puzzle,
-  Radio,
-} from "lucide-react";
+import { Check, CircleAlert, KeyRound, LinkIcon, Loader2, PenLine, Puzzle, Radio } from "lucide-react";
+import { npubEncode } from "nostr-tools/nip19";
 import type { ReactNode } from "react";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useApiClient, useAuthClient } from "@/app";
 import { PageContainer } from "@/components/layout/page-container";
+import { NostrIdentityCard } from "@/components/nostr/nostr-identity-card";
 import { Button } from "@/components/ui/button";
+import { useNostrIdentity } from "@/hooks/use-nostr-identity";
 import {
-  loadSession,
   pollBinding,
-  secretKeyBytes,
   signBindingEvent,
+  signerFromSession,
   submitBindingWrite,
 } from "@/lib/nostr";
 
@@ -43,24 +36,33 @@ function NostrLinkPage() {
   const apiClient = useApiClient();
   const queryClient = useQueryClient();
 
-  const nearAccountId = authClient.near.getAccountId();
-  const session = nearAccountId ? loadSession(nearAccountId) : null;
+  const {
+    nearAccountId,
+    session,
+    keyBusy,
+    handleConnectExtension,
+    handleGenerateKey,
+    handleImportKey,
+    handleExportKey,
+    handleClearKey,
+  } = useNostrIdentity();
+  const signer = useMemo(() => (session ? signerFromSession(session) : null), [session]);
 
   const [activeStep, setActiveStep] = useState<Step | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [boundNpub, setBoundNpub] = useState<string | null>(null);
 
   const handleLink = useCallback(async () => {
-    if (!session || !nearAccountId) return;
+    if (!session || !signer || !nearAccountId) return;
     setError(null);
     setBoundNpub(null);
     try {
       setActiveStep("challenge");
       const { challenge } = await apiClient.nostr.createChallenge({});
-      const signed = signBindingEvent({
+      const signed = await signBindingEvent({
         challenge,
         nearAccountId,
-        secretKey: secretKeyBytes(session),
+        signer,
       });
       const verified = await apiClient.nostr.verifyBinding({
         event: {
@@ -84,10 +86,12 @@ function NostrLinkPage() {
       });
 
       setActiveStep("submit");
-      await submitBindingWrite(authClient, tx, nearAccountId);
+      const txSigner = await submitBindingWrite(authClient, tx, nearAccountId);
 
       setActiveStep("confirm");
-      const binding = await pollBinding(apiClient, nearAccountId);
+      // Poll with the ACTUAL tx signer — under dev bypass the page-level
+      // account is a fake identity, but the wallet writes under its own id.
+      const binding = await pollBinding(apiClient, txSigner);
       if (!binding) {
         throw new Error(
           "Transaction confirmed but the binding is not indexed yet — try again in a moment",
@@ -97,14 +101,14 @@ function NostrLinkPage() {
       setBoundNpub(binding.npub);
       setActiveStep("done");
       await queryClient.invalidateQueries({ queryKey: ["nostr-binding"] });
-      toast.success("Nostr identity linked");
+      toast.success(`Nostr identity linked for ${txSigner}`);
     } catch (e) {
       setActiveStep(null);
       const message = e instanceof Error ? e.message : String(e);
       setError(message);
       toast.error("Linking failed", { description: message });
     }
-  }, [apiClient, authClient, nearAccountId, queryClient, session]);
+  }, [apiClient, authClient, nearAccountId, queryClient, session, signer]);
 
   const running = activeStep !== null && activeStep !== "done";
 
@@ -135,19 +139,35 @@ function NostrLinkPage() {
         )}
 
         {nearAccountId && !session && (
-          <Notice
-            icon={KeyRound}
-            title="No local Nostr key"
-            body="Generate a Nostr key on the Nostr page first — that key is the identity being bound."
-          >
-            <Button asChild type="button" variant="outline" size="sm">
-              <Link to="/nostr">Go to Nostr page</Link>
-            </Button>
-          </Notice>
+          <div className="space-y-4">
+            <Notice
+              icon={KeyRound}
+              title="No Nostr key yet"
+              body="Set one up right here — connect an extension, generate, or import. That key is the identity being bound to your NEAR account."
+            />
+            <NostrIdentityCard
+              nearAccountId={nearAccountId}
+              session={session}
+              bindingQueryKey={["nostr-binding", nearAccountId]}
+              onConnectExtension={handleConnectExtension}
+              onGenerateKey={handleGenerateKey}
+              onImportKey={handleImportKey}
+              onExportKey={handleExportKey}
+              onClearKey={handleClearKey}
+              busy={keyBusy}
+            />
+          </div>
         )}
 
         {nearAccountId && session && (
           <div className="space-y-4">
+            <div className="flex items-center gap-3 rounded-[10px] border border-border bg-card p-4">
+              <KeyRound className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm text-foreground">Binding identity</span>
+              <span className="ml-auto font-mono text-xs text-muted-foreground">
+                {npubEncode(session.pubkey)}
+              </span>
+            </div>
             <ol className="space-y-2">
               {STEP_LABELS.map(({ key, label, icon: Icon }) => {
                 const stepIndex = STEP_LABELS.findIndex((s) => s.key === key);

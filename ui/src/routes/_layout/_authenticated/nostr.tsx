@@ -3,21 +3,19 @@ import { createFileRoute } from "@tanstack/react-router";
 import { CheckCircle2, MessageSquare, RefreshCw, X, XCircle } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { useApiClient, useAuthClient } from "@/app";
+import { useApiClient } from "@/app";
 import { Card } from "@/components";
 import { PageContainer } from "@/components/layout/page-container";
 import { NostrCommentForm } from "@/components/nostr/nostr-comment-form";
 import { NostrCommentList } from "@/components/nostr/nostr-comment-list";
 import { NostrIdentityCard } from "@/components/nostr/nostr-identity-card";
+import { useNostrIdentity } from "@/hooks/use-nostr-identity";
 import type { NearNostrTarget } from "@/lib/nostr";
 import {
-  clearSession,
   formatTargetString,
-  generateAndStore,
-  loadSession,
   parseTargetString,
-  secretKeyBytes,
   signCommentEvent,
+  signerFromSession,
 } from "@/lib/nostr";
 
 const DEFAULT_TARGET = "project:test-nostr-page";
@@ -30,26 +28,30 @@ export const Route = createFileRoute("/_layout/_authenticated/nostr")({
 });
 
 function NostrPage() {
-  const auth = useAuthClient();
   const apiClient = useApiClient();
   const queryClient = useQueryClient();
 
-  const nearAccountId = auth.near.getAccountId();
+  const {
+    nearAccountId,
+    session,
+    keyBusy,
+    handleConnectExtension,
+    handleGenerateKey,
+    handleImportKey,
+    handleExportKey,
+    handleClearKey,
+  } = useNostrIdentity();
 
   const [targetInput, setTargetInput] = useState(DEFAULT_TARGET);
   const [replyTo, setReplyTo] = useState<{ id: string; preview: string } | null>(null);
   const [lastStatuses, setLastStatuses] = useState<Array<{ relay: string; success: boolean }>>([]);
-  const [generating, setGenerating] = useState(false);
 
   const target: NearNostrTarget | null = useMemo(
     () => parseTargetString(targetInput),
     [targetInput],
   );
 
-  const session = useMemo(() => {
-    if (!nearAccountId) return null;
-    return loadSession(nearAccountId);
-  }, [nearAccountId]);
+  const signer = useMemo(() => (session ? signerFromSession(session) : null), [session]);
 
   const relaysQuery = useQuery({
     queryKey: ["nostr-relays"],
@@ -81,55 +83,41 @@ function NostrPage() {
 
   const handlePublish = useCallback(
     async (content: string, parentEventId?: string) => {
-      if (!session || !nearAccountId || !target) return;
-      const event = signCommentEvent({
-        content,
-        target,
-        nearAccountId,
-        secretKey: secretKeyBytes(session),
-        ...(parentEventId ? { parentEventId } : {}),
-      });
-      const result = await apiClient.nostr.createComment({
-        event,
-        target: target.id,
-        targetType: target.type,
-        adapterType: "standard",
-      });
-      setLastStatuses(result.statuses);
-      const successes = result.statuses.filter((s) => s.success).length;
-      const total = result.statuses.length;
-      if (successes === total) {
-        toast.success(`Comment published to ${total} relay${total === 1 ? "" : "s"}`);
-      } else if (successes > 0) {
-        toast.warning(`Published to ${successes}/${total} relays`);
-      } else {
-        toast.error("Failed to publish comment to any relay");
+      if (!session || !signer || !nearAccountId || !target) return;
+      try {
+        const event = await signCommentEvent({
+          content,
+          target,
+          nearAccountId,
+          signer,
+          ...(parentEventId ? { parentEventId } : {}),
+        });
+        const result = await apiClient.nostr.createComment({
+          event,
+          target: target.id,
+          targetType: target.type,
+          adapterType: "standard",
+        });
+        setLastStatuses(result.statuses);
+        const successes = result.statuses.filter((s) => s.success).length;
+        const total = result.statuses.length;
+        if (successes === total) {
+          toast.success(`Comment published to ${total} relay${total === 1 ? "" : "s"}`);
+        } else if (successes > 0) {
+          toast.warning(`Published to ${successes}/${total} relays`);
+        } else {
+          toast.error("Failed to publish comment to any relay");
+        }
+        setReplyTo(null);
+        refresh();
+      } catch (e) {
+        toast.error("Signing failed", {
+          description: e instanceof Error ? e.message : String(e),
+        });
       }
-      setReplyTo(null);
-      refresh();
     },
-    [apiClient, nearAccountId, session, target, refresh],
+    [apiClient, nearAccountId, session, signer, target, refresh],
   );
-
-  const handleGenerateKey = useCallback(() => {
-    if (!nearAccountId) return;
-    setGenerating(true);
-    try {
-      generateAndStore(nearAccountId);
-      toast.success("Nostr key generated");
-      refresh();
-    } finally {
-      setGenerating(false);
-    }
-  }, [nearAccountId, refresh]);
-
-  const handleClearKey = useCallback(() => {
-    if (!nearAccountId) return;
-    clearSession(nearAccountId);
-    setReplyTo(null);
-    toast.info("Local Nostr key cleared");
-    refresh();
-  }, [nearAccountId, refresh]);
 
   const handleReply = useCallback((id: string, preview: string) => {
     setReplyTo({ id, preview });
@@ -156,19 +144,22 @@ function NostrPage() {
             Nostr Comments
           </h1>
           <p className="text-muted-foreground text-sm">
-            Publish and read Nostr-backed comments signed in your browser, relayed through public
-            relays, linked to your NEAR identity.
+            Publish and read Nostr-backed comments signed in your browser or via a NIP-07
+            extension, relayed through public relays, linked to your NEAR identity.
           </p>
         </header>
 
         {nearAccountId && (
           <NostrIdentityCard
             nearAccountId={nearAccountId}
-            nostrPubkey={session?.pubkey ?? ""}
+            session={session}
             bindingQueryKey={["nostr-binding", nearAccountId]}
+            onConnectExtension={handleConnectExtension}
             onGenerateKey={handleGenerateKey}
+            onImportKey={handleImportKey}
+            onExportKey={handleExportKey}
             onClearKey={handleClearKey}
-            generating={generating}
+            busy={keyBusy}
           />
         )}
 

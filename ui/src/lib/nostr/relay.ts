@@ -1,7 +1,8 @@
-import { finalizeEvent } from "nostr-tools/pure";
+import type { EventTemplate } from "nostr-tools/pure";
 import type { NearNostrTarget } from "./types";
+import { type NostrSigner, signWithSigner } from "./signers";
 
-type SignedNostrEvent = ReturnType<typeof finalizeEvent>;
+export type SignedNostrEvent = import("./signers").SignedNostrEvent;
 
 const CLIENT_NAME = "nostr.nearbuilders.org";
 
@@ -11,7 +12,7 @@ export type SignCommentEventOptions = {
   content: string;
   target: NearNostrTarget;
   nearAccountId: string;
-  secretKey: Uint8Array;
+  signer: NostrSigner;
   parentEventId?: string;
 };
 
@@ -25,11 +26,11 @@ export type SignCommentEventOptions = {
  *   - `client` = clientName (NIP-24)
  *   - `e` reply marker -- NIP-10 parent link when present
  *
- * Signing locally keeps the user's secret key in the browser. The plugin
- * then verifies the signature, re-asserts the near_target tag, and
- * publishes via the nostr-tools SimplePool.
+ * Signing runs through a NostrSigner: either a locally stored secret key or a
+ * NIP-07 browser extension. The plugin then verifies the signature, re-asserts
+ * the near_target tag, and publishes via the relay transport.
  */
-export function signCommentEvent(opts: SignCommentEventOptions): SignedNostrEvent {
+export async function signCommentEvent(opts: SignCommentEventOptions): Promise<SignedNostrEvent> {
   const tags: string[][] = [
     ["t", opts.target.type],
     ["t", CLIENT_NAME],
@@ -41,15 +42,11 @@ export function signCommentEvent(opts: SignCommentEventOptions): SignedNostrEven
     tags.push(["e", opts.parentEventId, "", "reply"]);
   }
 
-  return finalizeEvent(
-    {
-      kind: 1,
-      created_at: Math.floor(Date.now() / 1000),
-      tags,
-      content: opts.content,
-    },
-    opts.secretKey,
-  );
+  const template: EventTemplate = {
+    kind: 1,
+    created_at: Math.floor(Date.now() / 1000),
+    tags,
+    content: opts.content,
+  };
+  return signWithSigner(opts.signer, template);
 }
-
-export { CLIENT_NAME };
