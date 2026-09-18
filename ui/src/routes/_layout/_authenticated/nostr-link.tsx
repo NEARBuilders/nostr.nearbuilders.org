@@ -40,11 +40,13 @@ function NostrLinkPage() {
     nearAccountId,
     session,
     keyBusy,
+    vaultBusy,
     handleConnectExtension,
     handleGenerateKey,
     handleImportKey,
     handleExportKey,
     handleClearKey,
+    handleVaultRestore,
   } = useNostrIdentity();
   const signer = useMemo(() => (session ? signerFromSession(session) : null), [session]);
 
@@ -154,7 +156,9 @@ function NostrLinkPage() {
               onImportKey={handleImportKey}
               onExportKey={handleExportKey}
               onClearKey={handleClearKey}
+              onVaultRestore={handleVaultRestore}
               busy={keyBusy}
+              vaultBusy={vaultBusy}
             />
           </div>
         )}

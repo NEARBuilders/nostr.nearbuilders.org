@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { useApiClient } from "@/lib/api";
 import { useAuthClient } from "@/app";
 import {
   clearSession,
@@ -11,16 +12,23 @@ import {
   secretToNsec,
 } from "@/lib/nostr";
 import type { NostrSession } from "@/lib/nostr";
+import { vaultDelete, vaultGet, vaultPut } from "@/lib/nostr/vault";
 
 /**
  * Shared Nostr identity state + key actions for both the /nostr and /nostr-link
  * pages. Single source of truth: session re-reads localStorage after every key
  * action (version counter), so all consumers re-render with the same identity.
+ *
+ * Vault: generated/imported keys are also stored server-side, encrypted at
+ * rest (AES-256-GCM). On any page load without a local key, the vault is
+ * offered as a one-click restore path.
  */
 export function useNostrIdentity() {
   const auth = useAuthClient();
+  const apiClient = useApiClient();
   const nearAccountId = auth.near.getAccountId();
   const [keyBusy, setKeyBusy] = useState(false);
+  const [vaultBusy, setVaultBusy] = useState(false);
   const [sessionVersion, setSessionVersion] = useState(0);
 
   const session = useMemo(() => {
@@ -59,23 +67,29 @@ export function useNostrIdentity() {
     if (!nearAccountId) return;
     setKeyBusy(true);
     try {
-      generateAndStore(nearAccountId);
+      const s = generateAndStore(nearAccountId);
       toast.success("Nostr key generated", {
-        description: "Export the nsec now — it is only stored in this browser.",
+        description: "Saved locally and backed up to the encrypted vault.",
+      });
+      void vaultPut(apiClient, secretToNsec(s)).catch(() => {
+        toast.info("Vault backup unavailable", {
+          description: "Key works locally; vault not configured on this server.",
+        });
       });
       bumpSession();
     } finally {
       setKeyBusy(false);
     }
-  }, [nearAccountId, bumpSession]);
+  }, [nearAccountId, apiClient, bumpSession]);
 
   const handleImportKey = useCallback(
     (secret: string) => {
       if (!nearAccountId) return;
       setKeyBusy(true);
       try {
-        importAndStore(nearAccountId, secret);
+        const s = importAndStore(nearAccountId, secret);
         toast.success("Nostr key imported");
+        void vaultPut(apiClient, secretToNsec(s)).catch(() => undefined);
         bumpSession();
       } catch (e) {
         toast.error("Invalid key", {
@@ -85,7 +99,7 @@ export function useNostrIdentity() {
         setKeyBusy(false);
       }
     },
-    [nearAccountId, bumpSession],
+    [nearAccountId, apiClient, bumpSession],
   );
 
   const handleExportKey = useCallback(() => {
@@ -106,19 +120,60 @@ export function useNostrIdentity() {
   const handleClearKey = useCallback(() => {
     if (!nearAccountId) return;
     clearSession(nearAccountId);
-    toast.info("Local Nostr key cleared");
+    toast.info("Local Nostr key cleared", {
+      description: "It remains recoverable from the encrypted vault.",
+    });
     bumpSession();
   }, [nearAccountId, bumpSession]);
+
+  const handleVaultRestore = useCallback(async () => {
+    if (!nearAccountId || session) return;
+    setVaultBusy(true);
+    try {
+      const entry = await vaultGet(apiClient);
+      if (!entry) {
+        toast.error("Nothing stored in the vault for this account");
+        return;
+      }
+      importAndStore(nearAccountId, entry.nsec);
+      toast.success("Key restored from encrypted vault");
+      bumpSession();
+    } catch (e) {
+      toast.error("Vault restore failed", {
+        description: e instanceof Error ? e.message : String(e),
+      });
+    } finally {
+      setVaultBusy(false);
+    }
+  }, [nearAccountId, session, apiClient, bumpSession]);
+
+  const handleVaultForget = useCallback(async () => {
+    if (!nearAccountId) return;
+    setVaultBusy(true);
+    try {
+      await vaultDelete(apiClient);
+      toast.info("Vault entry deleted");
+    } catch (e) {
+      toast.error("Vault delete failed", {
+        description: e instanceof Error ? e.message : String(e),
+      });
+    } finally {
+      setVaultBusy(false);
+    }
+  }, [nearAccountId, apiClient]);
 
   return {
     nearAccountId,
     session,
     keyBusy,
+    vaultBusy,
     handleConnectExtension,
     handleGenerateKey,
     handleImportKey,
     handleExportKey,
     handleClearKey,
+    handleVaultRestore,
+    handleVaultForget,
   };
 }
 

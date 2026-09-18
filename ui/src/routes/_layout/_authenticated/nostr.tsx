@@ -35,11 +35,13 @@ function NostrPage() {
     nearAccountId,
     session,
     keyBusy,
+    vaultBusy,
     handleConnectExtension,
     handleGenerateKey,
     handleImportKey,
     handleExportKey,
     handleClearKey,
+    handleVaultRestore,
   } = useNostrIdentity();
 
   const [targetInput, setTargetInput] = useState(DEFAULT_TARGET);
@@ -159,7 +161,9 @@ function NostrPage() {
             onImportKey={handleImportKey}
             onExportKey={handleExportKey}
             onClearKey={handleClearKey}
+            onVaultRestore={handleVaultRestore}
             busy={keyBusy}
+            vaultBusy={vaultBusy}
           />
         )}
 

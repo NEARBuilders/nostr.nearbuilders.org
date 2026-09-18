@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
   CheckCircle2,
+  CloudDownload,
   Copy,
   Import,
   Key,
@@ -40,7 +41,9 @@ type Props = {
   onImportKey: (secret: string) => void;
   onExportKey: () => void;
   onClearKey: () => void;
+  onVaultRestore: () => void;
   busy: boolean;
+  vaultBusy: boolean;
 };
 
 export function NostrIdentityCard({
@@ -52,7 +55,9 @@ export function NostrIdentityCard({
   onImportKey,
   onExportKey,
   onClearKey,
+  onVaultRestore,
   busy,
+  vaultBusy,
 }: Props) {
   const apiClient = useApiClient();
   const [importOpen, setImportOpen] = useState(false);
@@ -144,6 +149,16 @@ export function NostrIdentityCard({
             >
               <Import className="h-3 w-3 mr-1" />
               Import Key
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onVaultRestore}
+              disabled={busy || vaultBusy}
+            >
+              <CloudDownload className="h-3 w-3 mr-1" />
+              {vaultBusy ? "Restoring…" : "Restore from Vault"}
             </Button>
           </>
         )}
