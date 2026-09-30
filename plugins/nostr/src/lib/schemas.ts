@@ -27,6 +27,7 @@ export const NostrCommentSchema = z.object({
   targetType: z.string(),
   nearAccountId: z.string().optional().nullable(),
   parentEventId: z.string().optional().nullable(),
+  rootEventId: z.string().optional().nullable(),
   createdAt: z.number().int(),
   tags: z.array(z.array(z.string())).optional(),
   source: z.enum(["standard", "buzz"]),

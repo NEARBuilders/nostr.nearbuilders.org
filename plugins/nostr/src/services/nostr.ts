@@ -104,6 +104,9 @@ const toComment = (
   targetType,
   nearAccountId: event.tags.find((t) => t[0] === "near_account")?.[1],
   parentEventId: event.tags.find((t) => t[0] === "e" && t[3] === "reply")?.[1],
+  rootEventId:
+    event.tags.find((t) => t[0] === "e" && t[3] === "root")?.[1] ??
+    event.tags.find((t) => t[0] === "e" && t[3] === "reply")?.[1],
   createdAt: event.created_at,
   tags: event.tags,
   source,
