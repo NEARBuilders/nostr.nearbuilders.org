@@ -1,7 +1,14 @@
 import { BAD_REQUEST, UNAUTHORIZED } from "every-plugin/errors";
-import { oc } from "every-plugin/orpc";
+import { eventIterator, oc } from "every-plugin/orpc";
 import { z } from "every-plugin/zod";
-import { NostrCommentSchema, ProfileSchema, PublishResultSchema } from "./lib/schemas";
+import { RelayErrors } from "./lib/relay-errors";
+import {
+  NostrCommentSchema,
+  NostrEventSchema,
+  ProfileSchema,
+  PublishResultSchema,
+  RawRelayInputSchema,
+} from "./lib/schemas";
 
 // ── Binding & identity schemas ──
 
@@ -188,55 +195,31 @@ export const contract = oc.router({
 
   queryEvents: oc
     .route({ method: "POST", path: "/v1/nostr/query" })
-    .input(
-      z.object({
-        filter: z.object({
-          kinds: z.array(z.number().int()).optional(),
-          authors: z.array(z.string()).optional(),
-          ids: z.array(z.string()).optional(),
-          since: z.number().int().optional(),
-          until: z.number().int().optional(),
-          limit: z.number().int().min(1).max(500).optional(),
-          tags: z.array(z.object({ tag: z.string(), values: z.array(z.string()) })).optional(),
-        }),
-        relays: z.array(z.string()).optional(),
-      }),
-    )
+    .input(RawRelayInputSchema)
     .output(
       z.object({
-        events: z.array(
-          z.object({
-            id: z.string(),
-            pubkey: z.string(),
-            created_at: z.number().int(),
-            kind: z.number().int(),
-            tags: z.array(z.array(z.string())),
-            content: z.string(),
-            sig: z.string(),
-          }),
-        ),
+        events: z.array(NostrEventSchema),
+        meta: z.object({ limited: z.boolean() }),
       }),
     )
-    .errors({ BAD_REQUEST }),
+    .errors({ BAD_REQUEST, ...RelayErrors }),
+
+  subscribeEvents: oc
+    .route({ method: "POST", path: "/v1/nostr/subscribe" })
+    .input(RawRelayInputSchema)
+    .output(eventIterator(NostrEventSchema))
+    .errors({ BAD_REQUEST, ...RelayErrors }),
 
   publishEvent: oc
     .route({ method: "POST", path: "/v1/nostr/publish" })
     .input(
       z.object({
-        event: z.object({
-          id: z.string(),
-          pubkey: z.string(),
-          created_at: z.number().int(),
-          kind: z.number().int(),
-          tags: z.array(z.array(z.string())),
-          content: z.string(),
-          sig: z.string(),
-        }),
-        relays: z.array(z.string()).optional(),
+        event: NostrEventSchema,
+        relays: z.array(z.string()).min(1).max(10).optional(),
       }),
     )
     .output(PublishResultSchema)
-    .errors({ BAD_REQUEST }),
+    .errors({ BAD_REQUEST, ...RelayErrors }),
 
   getProfile: oc
     .route({ method: "GET", path: "/v1/nostr/profile/{pubkey}" })

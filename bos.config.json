@@ -35,6 +35,9 @@
       "dependsOn": [
         "auth"
       ],
+      "variables": {
+        "STANDARD_RELAYS": "wss://relay.nearbuilders.org,wss://relay.damus.io,wss://nos.lol,wss://relay.primal.net"
+      },
       "secrets": [
         "BUZZ_NSEC"
       ],

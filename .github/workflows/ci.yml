@@ -71,6 +71,9 @@ jobs:
       - name: Run tests
         run: bun run test
 
+      - name: Test bundled Nostr relay transport
+        run: bun run --cwd plugins/nostr test:bundle
+
   notify:
     name: Notify downstream workflows
     needs: [lint-and-typecheck]

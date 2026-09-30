@@ -1,5 +1,6 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { rspack } from "@rspack/core";
 import {
   EmitPluginManifest,
   EveryPluginDevServer,
@@ -19,6 +20,10 @@ const baseConfig = {
   devtool: shouldDeploy ? false : "source-map",
   plugins: [
     new EmitPluginManifest(),
+    new rspack.DefinePlugin({
+      "process.env.WS_NO_BUFFER_UTIL": JSON.stringify("1"),
+      "process.env.WS_NO_UTF_8_VALIDATE": JSON.stringify("1"),
+    }),
     new EveryPluginDevServer({ dts: false }),
     new FixMfDataUriPlugin(),
   ],

@@ -3,6 +3,7 @@ import { ORPCError } from "every-plugin/orpc";
 import { readKvBindingEntry } from "../lib/fastnear-kv";
 import type { NostrResolvedConfig } from "../lib/nostr-config";
 import { NostrConfigTag } from "../lib/nostr-config";
+import { relayError } from "../lib/relay-errors";
 import type { ChannelInfo, NostrComment, NostrProfile, PublishResult } from "../lib/schemas";
 import {
   BuzzAdapter,
@@ -38,7 +39,16 @@ export interface NostrCommentServiceShape {
   readonly rawQuery: (opts: {
     filter: NostrFilter;
     relays?: string[];
-  }) => Effect.Effect<NostrEvent[], never>;
+    signal?: AbortSignal;
+  }) => Effect.Effect<
+    { events: NostrEvent[]; meta: { limited: boolean } },
+    ORPCError<string, unknown>
+  >;
+  readonly rawSubscribe: (opts: {
+    filter: NostrFilter;
+    relays?: string[];
+    signal?: AbortSignal;
+  }) => Effect.Effect<AsyncGenerator<NostrEvent>, ORPCError<string, unknown>>;
   readonly rawPublish: (opts: {
     event: NostrEvent;
     relays?: string[];
@@ -99,7 +109,6 @@ const toComment = (
   source,
 });
 
-const emptyQueryResult: NostrEvent[] = [];
 const emptyProfile: NostrProfile | null = null;
 
 /**
@@ -233,16 +242,36 @@ export const NostrCommentServiceLive = Layer.scoped(
         });
       });
 
+    const selectedRelays = (requested?: string[]) => {
+      const relays = [...new Set(requested ?? cfg.standardRelays)];
+      if (relays.length === 0 || relays.some((relay) => !cfg.standardRelays.includes(relay))) {
+        throw badRequest("Select only configured standard relays");
+      }
+      return relays;
+    };
+
     const rawQuery: NostrCommentServiceShape["rawQuery"] = (opts) =>
       Effect.tryPromise({
-        try: () => standard.queryRaw(opts.filter, opts.relays),
-        catch: (e: unknown) => e,
-      }).pipe(Effect.catchAll(catchAllEmpty(emptyQueryResult, "standard.queryRaw")));
+        try: () => standard.queryRaw(opts.filter, selectedRelays(opts.relays), opts.signal),
+        catch: relayError,
+      });
+
+    const rawSubscribe: NostrCommentServiceShape["rawSubscribe"] = (opts) =>
+      Effect.try({
+        try: () => standard.streamRaw(opts.filter, selectedRelays(opts.relays), opts.signal),
+        catch: relayError,
+      });
 
     const rawPublish: NostrCommentServiceShape["rawPublish"] = (opts) =>
       Effect.gen(function* () {
         const result = yield* Effect.tryPromise({
-          try: () => standard.publishSigned(opts.event, opts.relays),
+          try: () => {
+            const relays = selectedRelays(opts.relays);
+            if (new TextEncoder().encode(JSON.stringify(opts.event)).length > 65_536) {
+              throw badRequest("Signed event exceeds 64 KiB");
+            }
+            return standard.publishSigned(opts.event, relays);
+          },
           catch: (e: unknown) =>
             new ORPCError("BAD_REQUEST", {
               message: e instanceof Error ? e.message : String(e),
@@ -277,6 +306,7 @@ export const NostrCommentServiceLive = Layer.scoped(
       publishSigned,
       listChannels,
       rawQuery,
+      rawSubscribe,
       rawPublish,
       getProfile,
     } as const;
