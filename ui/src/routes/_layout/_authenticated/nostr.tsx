@@ -32,8 +32,8 @@ function NostrPage() {
             Nostr Comments
           </h1>
           <p className="text-muted-foreground text-sm">
-            Publish and read Nostr-backed comments signed in your browser or via a NIP-07
-            extension, relayed through public relays, linked to your NEAR identity.
+            Publish and read Nostr-backed comments signed in your browser or via a NIP-07 extension,
+            relayed through public relays, linked to your NEAR identity.
           </p>
         </header>
 

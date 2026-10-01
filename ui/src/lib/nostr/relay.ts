@@ -1,7 +1,7 @@
 import { SimplePool } from "nostr-tools/pool";
 import { type EventTemplate, finalizeEvent, getPublicKey } from "nostr-tools/pure";
-import { COMMENT_KINDS, Kind, type NearNostrComment, type NearNostrTarget } from "./types";
 import { type NostrSigner, signWithSigner } from "./signers";
+import { COMMENT_KINDS, Kind, type NearNostrComment, type NearNostrTarget } from "./types";
 
 const DEFAULT_RELAYS = ["wss://relay.damus.io", "wss://nos.lol", "wss://relay.primal.net"];
 
