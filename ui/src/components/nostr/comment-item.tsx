@@ -5,6 +5,10 @@ import { Button } from "@/components/ui/button";
 import type { ThreadNode } from "@/lib/nostr";
 import { NostrCommentForm } from "./nostr-comment-form";
 
+// Belt-and-braces render cap: buildThreads is cycle-safe, but never let an
+// unexpected shape recurse without bound.
+const MAX_THREAD_DEPTH = 10;
+
 export function CommentItem({
   node,
   replyingTo,
@@ -12,6 +16,7 @@ export function CommentItem({
   bindingMap,
   onReply,
   onSubmitReply,
+  depth = 0,
 }: {
   node: ThreadNode;
   replyingTo: string | null;
@@ -24,6 +29,7 @@ export function CommentItem({
     rootEventId?: string,
     parentPubkey?: string,
   ) => Promise<void>;
+  depth?: number;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const replyCount = node.children.length;
@@ -92,7 +98,7 @@ export function CommentItem({
           />
         )}
       </div>
-      {!collapsed && node.children.length > 0 && (
+      {!collapsed && node.children.length > 0 && depth < MAX_THREAD_DEPTH && (
         <div className="ml-6 space-y-2 border-l border-border pl-4">
           {node.children.map((child) => (
             <CommentItem
@@ -103,6 +109,7 @@ export function CommentItem({
               bindingMap={bindingMap}
               onReply={onReply}
               onSubmitReply={onSubmitReply}
+              depth={depth + 1}
             />
           ))}
         </div>

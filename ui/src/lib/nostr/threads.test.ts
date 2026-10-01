@@ -57,4 +57,26 @@ describe("buildThreads", () => {
 
     expect(tree.map((n) => n.eventId)).toEqual(["t1"]);
   });
+
+  it("promotes a self-parented event instead of recursing forever", () => {
+    const tree = buildThreads([make("t1", 100), make("self", 200, "self")]);
+
+    expect(tree.map((n) => n.eventId)).toEqual(["self", "t1"]);
+    expect(tree.find((n) => n.eventId === "self")?.children).toEqual([]);
+  });
+
+  it("breaks a two-node parent cycle by promoting both to top level", () => {
+    const a = make("a", 100, "b");
+    const b = make("b", 200, "a");
+    const tree = buildThreads([a, b]);
+
+    expect(tree.map((n) => n.eventId).sort()).toEqual(["a", "b"]);
+    for (const n of tree) expect(n.children).toEqual([]);
+  });
+
+  it("breaks a three-node parent cycle without losing comments", () => {
+    const tree = buildThreads([make("a", 100, "c"), make("b", 200, "a"), make("c", 300, "b")]);
+
+    expect(tree.map((n) => n.eventId).sort()).toEqual(["a", "b", "c"]);
+  });
 });
