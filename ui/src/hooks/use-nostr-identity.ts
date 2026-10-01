@@ -1,7 +1,8 @@
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { useApiClient } from "@/lib/api";
 import { useAuthClient } from "@/app";
+import { useApiClient } from "@/lib/api";
+import type { NostrSession } from "@/lib/nostr";
 import {
   clearSession,
   generateAndStore,
@@ -11,7 +12,6 @@ import {
   saveSession,
   secretToNsec,
 } from "@/lib/nostr";
-import type { NostrSession } from "@/lib/nostr";
 import { vaultDelete, vaultGet, vaultPut } from "@/lib/nostr/vault";
 
 /**

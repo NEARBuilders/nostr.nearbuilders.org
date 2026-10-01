@@ -1,21 +1,14 @@
-import { Context, Effect, Layer } from "every-plugin/effect";
-import { z } from "every-plugin/zod";
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import { createRequire } from "node:module";
-import {
-  createCipheriv,
-  createDecipheriv,
-  createHash,
-  randomBytes,
-} from "node:crypto";
+import { Context, Effect, Layer } from "every-plugin/effect";
 
 // pg is loaded lazily via createRequire: a static import would pull pg's
 // ESM-fragile class chain into the Module Federation bundle, which breaks
 // at runtime (`Class extends value is not a constructor`). Resolving it
 // from node_modules at call time keeps the bundle clean.
 type PgPool = import("pg").Pool;
-type PgClient = import("pg").PoolClient;
 const require = createRequire(import.meta.url);
-let PgPoolCtor: (typeof import("pg"))["Pool"] | null = null;
+let PgPoolCtor: typeof import("pg")["Pool"] | null = null;
 function getPoolCtor() {
   if (!PgPoolCtor) PgPoolCtor = require("pg").Pool;
   return PgPoolCtor;
@@ -52,16 +45,9 @@ export function decryptNsec(secret: string, blob: string): string {
   if (!ivB64 || !ctB64 || !tagB64) {
     throw new Error("vault: malformed ciphertext envelope");
   }
-  const decipher = createDecipheriv(
-    "aes-256-gcm",
-    deriveKey(secret),
-    Buffer.from(ivB64, "base64"),
-  );
+  const decipher = createDecipheriv("aes-256-gcm", deriveKey(secret), Buffer.from(ivB64, "base64"));
   decipher.setAuthTag(Buffer.from(tagB64, "base64"));
-  const pt = Buffer.concat([
-    decipher.update(Buffer.from(ctB64, "base64")),
-    decipher.final(),
-  ]);
+  const pt = Buffer.concat([decipher.update(Buffer.from(ctB64, "base64")), decipher.final()]);
   return pt.toString("utf8");
 }
 
@@ -79,13 +65,8 @@ export interface VaultEntry {
 export class VaultService extends Context.Tag("nostr.VaultService")<
   VaultService,
   {
-    store(
-      nearAccount: string,
-      nsec: string,
-    ): Effect.Effect<{ createdAt: string }, Error>;
-    load(
-      nearAccount: string,
-    ): Effect.Effect<VaultEntry | null, Error>;
+    store(nearAccount: string, nsec: string): Effect.Effect<{ createdAt: string }, Error>;
+    load(nearAccount: string): Effect.Effect<VaultEntry | null, Error>;
     remove(nearAccount: string): Effect.Effect<boolean, Error>;
   }
 >() {}
@@ -101,18 +82,16 @@ export const VaultServiceLive = Layer.effect(
         "[Vault] VAULT_DATABASE_URL/VAULT_SECRET not set — nsec vault disabled",
       );
       return {
-        store: () =>
-          Effect.fail(new Error("Vault disabled: VAULT_DATABASE_URL not configured")),
-        load: () =>
-          Effect.fail(new Error("Vault disabled: VAULT_DATABASE_URL not configured")),
-        remove: () =>
-          Effect.fail(new Error("Vault disabled: VAULT_DATABASE_URL not configured")),
+        store: () => Effect.fail(new Error("Vault disabled: VAULT_DATABASE_URL not configured")),
+        load: () => Effect.fail(new Error("Vault disabled: VAULT_DATABASE_URL not configured")),
+        remove: () => Effect.fail(new Error("Vault disabled: VAULT_DATABASE_URL not configured")),
       };
     }
 
-    const pool: PgPool = new (getPoolCtor() as NonNullable<
-      (typeof import("pg"))["Pool"]
-    >)({ connectionString: dbUrl, max: 3 });
+    const pool: PgPool = new (getPoolCtor() as NonNullable<typeof import("pg")["Pool"]>)({
+      connectionString: dbUrl,
+      max: 3,
+    });
 
     yield* Effect.acquireRelease(
       Effect.sync(() => undefined),
@@ -133,9 +112,7 @@ export const VaultServiceLive = Layer.effect(
       catch: () => new Error("vault: migration failed"),
     }).pipe(
       Effect.catchAll(() =>
-        Effect.logWarning(
-          "[Vault] migration failed — vault disabled until DB is reachable",
-        ),
+        Effect.logWarning("[Vault] migration failed — vault disabled until DB is reachable"),
       ),
       Effect.orDie,
     );
@@ -180,10 +157,9 @@ export const VaultServiceLive = Layer.effect(
     const remove = (nearAccount: string) =>
       Effect.tryPromise({
         try: async () => {
-          const res = await pool.query(
-            `DELETE FROM nostr_key_vault WHERE near_account = $1`,
-            [nearAccount],
-          );
+          const res = await pool.query(`DELETE FROM nostr_key_vault WHERE near_account = $1`, [
+            nearAccount,
+          ]);
           return (res.rowCount ?? 0) > 0;
         },
         catch: () => new Error("vault: remove failed"),

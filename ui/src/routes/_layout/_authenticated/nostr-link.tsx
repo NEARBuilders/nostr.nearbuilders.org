@@ -1,6 +1,15 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Check, CircleAlert, KeyRound, LinkIcon, Loader2, PenLine, Puzzle, Radio } from "lucide-react";
+import {
+  Check,
+  CircleAlert,
+  KeyRound,
+  LinkIcon,
+  Loader2,
+  PenLine,
+  Puzzle,
+  Radio,
+} from "lucide-react";
 import { npubEncode } from "nostr-tools/nip19";
 import type { ReactNode } from "react";
 import { useCallback, useMemo, useState } from "react";
@@ -10,12 +19,7 @@ import { PageContainer } from "@/components/layout/page-container";
 import { NostrIdentityCard } from "@/components/nostr/nostr-identity-card";
 import { Button } from "@/components/ui/button";
 import { useNostrIdentity } from "@/hooks/use-nostr-identity";
-import {
-  pollBinding,
-  signBindingEvent,
-  signerFromSession,
-  submitBindingWrite,
-} from "@/lib/nostr";
+import { pollBinding, signBindingEvent, signerFromSession, submitBindingWrite } from "@/lib/nostr";
 
 type Step = "challenge" | "submit" | "confirm" | "done";
 

@@ -9,7 +9,7 @@ import {
   normalizeSecret,
   secretToNsec,
 } from "./keys";
-import { getNip07, signWithSigner, signerFromSession, signerPubkey } from "./signers";
+import { getNip07, signerFromSession, signerPubkey, signWithSigner } from "./signers";
 
 // --- minimal browser stubs (node environment) ---
 

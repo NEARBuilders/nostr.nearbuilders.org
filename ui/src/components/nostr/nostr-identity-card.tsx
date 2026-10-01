@@ -13,7 +13,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { npubEncode } from "nostr-tools/nip19";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useApiClient } from "@/app";
 import { Button } from "@/components/ui/button";
 import { InfoRow } from "@/components/ui/info-row";
@@ -62,6 +62,10 @@ export function NostrIdentityCard({
   const apiClient = useApiClient();
   const [importOpen, setImportOpen] = useState(false);
   const [importValue, setImportValue] = useState("");
+  const importInputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (importOpen) importInputRef.current?.focus();
+  }, [importOpen]);
 
   const bindingQuery = useQuery({
     queryKey: bindingQueryKey,
@@ -187,6 +191,7 @@ export function NostrIdentityCard({
       {importOpen && (
         <div className="flex flex-col sm:flex-row gap-2">
           <input
+            ref={importInputRef}
             type="password"
             value={importValue}
             onChange={(e) => setImportValue(e.target.value)}
@@ -194,7 +199,6 @@ export function NostrIdentityCard({
               if (e.key === "Enter") submitImport();
             }}
             placeholder="nsec1… or 64-char hex"
-            autoFocus
             className="flex-1 rounded-md border border-input bg-background px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring"
           />
           <Button

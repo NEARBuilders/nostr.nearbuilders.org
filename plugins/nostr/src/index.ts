@@ -49,10 +49,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         ),
       );
 
-      const vault = yield* tools.buildService(
-        VaultService,
-        VaultServiceLive,
-      );
+      const vault = yield* tools.buildService(VaultService, VaultServiceLive);
 
       yield* Effect.logInfo("[Nostr] Services Initialized");
 
@@ -73,7 +70,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
     // NOSTR_DEV_FAKE_AUTH env var is set, accept a fixed test identity instead.
     // MUST be unset for production builds. Remove before opening a PR.
     const DEV_FAKE_AUTH = process.env.NOSTR_DEV_FAKE_AUTH === "1";
-    const devRequireAuth = ((mw, builder_) => {
+    const devRequireAuth = ((_mw, builder_) => {
       if (!DEV_FAKE_AUTH) return null;
       const fakeAuth = {
         requireAuth: builder_.middleware(async ({ next }: { next: any }) =>
@@ -199,16 +196,12 @@ export default createPlugin.withPlugins<PluginsClient>()({
       vaultPut: builder.vaultPut
         .use(auth.requireAuth)
         .use(requireNearAccount)
-        .handler(({ input, context }) =>
-          runEffect(vault.store(context.nearAccountId, input.nsec)),
-        ),
+        .handler(({ input, context }) => runEffect(vault.store(context.nearAccountId, input.nsec))),
 
       vaultGet: builder.vaultGet
         .use(auth.requireAuth)
         .use(requireNearAccount)
-        .handler(({ context }) =>
-          runEffect(vault.load(context.nearAccountId)),
-        ),
+        .handler(({ context }) => runEffect(vault.load(context.nearAccountId))),
 
       vaultDelete: builder.vaultDelete
         .use(auth.requireAuth)

@@ -1,6 +1,6 @@
 import type { EventTemplate } from "nostr-tools/pure";
-import type { NearNostrTarget } from "./types";
 import { type NostrSigner, signWithSigner } from "./signers";
+import type { NearNostrTarget } from "./types";
 
 export type SignedNostrEvent = import("./signers").SignedNostrEvent;
 

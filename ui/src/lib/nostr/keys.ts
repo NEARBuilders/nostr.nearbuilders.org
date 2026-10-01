@@ -1,6 +1,6 @@
+import { type DecodedNsec, decode, nsecEncode } from "nostr-tools/nip19";
 import { generateSecretKey, getPublicKey } from "nostr-tools/pure";
 import { bytesToHex, hexToBytes } from "nostr-tools/utils";
-import { decode, nsecEncode, type DecodedNsec } from "nostr-tools/nip19";
 
 const STORAGE_PREFIX = "nostr:session:";
 

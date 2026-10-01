@@ -1,5 +1,4 @@
-import { finalizeEvent, type EventTemplate } from "nostr-tools/pure";
-import { getPublicKey } from "nostr-tools/pure";
+import { type EventTemplate, finalizeEvent, getPublicKey } from "nostr-tools/pure";
 import { hexToBytes } from "nostr-tools/utils";
 import type { NostrSession } from "./keys";
 
@@ -26,9 +25,7 @@ export function getNip07(): Nip07Provider | null {
   return provider ?? null;
 }
 
-export type NostrSigner =
-  | { kind: "local"; secretKey: Uint8Array }
-  | { kind: "nip07" };
+export type NostrSigner = { kind: "local"; secretKey: Uint8Array } | { kind: "nip07" };
 
 export function signerFromSession(session: NostrSession): NostrSigner {
   if (session.source === "extension") return { kind: "nip07" };
@@ -51,6 +48,7 @@ export async function signWithSigner(
     return finalizeEvent(template, signer.secretKey) as SignedNostrEvent;
   }
   const provider = getNip07();
-  if (!provider) throw new Error("No NIP-07 extension found — install Alby or nos2x, or use a local key");
+  if (!provider)
+    throw new Error("No NIP-07 extension found — install Alby or nos2x, or use a local key");
   return provider.signEvent(template);
 }

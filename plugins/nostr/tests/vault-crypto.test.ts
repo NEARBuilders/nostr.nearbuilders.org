@@ -2,8 +2,7 @@ import { describe, expect, it } from "vitest";
 import { decryptNsec, encryptNsec, nsecFingerprint } from "../src/services/vault";
 
 const SECRET = "unit-test-secret-with-at-least-32-chars!!";
-const NSEC =
-  "nsec1qurswpc8qurswpc8qurswpc8qurswpc8qurswpc8qurswpc8qursl6edet";
+const NSEC = "nsec1qurswpc8qurswpc8qurswpc8qurswpc8qurswpc8qurswpc8qursl6edet";
 
 describe("vault crypto", () => {
   it("round-trips nsec through AES-256-GCM", () => {

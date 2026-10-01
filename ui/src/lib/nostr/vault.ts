@@ -12,10 +12,7 @@ export interface VaultStatus {
   createdAt?: string;
 }
 
-export async function vaultPut(
-  client: ApiClient,
-  nsec: string,
-): Promise<VaultStatus> {
+export async function vaultPut(client: ApiClient, nsec: string): Promise<VaultStatus> {
   const res = await client.nostr.vaultPut({ nsec });
   return { stored: true, createdAt: res.createdAt };
 }

@@ -41,9 +41,7 @@ export const NostrSecretsSchema = z.object({
   VAULT_DATABASE_URL: z
     .string()
     .optional()
-    .describe(
-      "Postgres URL for the encrypted nsec vault. Omit to disable the vault.",
-    ),
+    .describe("Postgres URL for the encrypted nsec vault. Omit to disable the vault."),
   VAULT_SECRET: z
     .string()
     .min(32)

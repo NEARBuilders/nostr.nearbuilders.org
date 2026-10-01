@@ -235,14 +235,22 @@ export const contract = oc.router({
     .route({ method: "POST", path: "/v1/nostr/vault", summary: "Store nsec encrypted at rest" })
     .input(
       z.object({
-        nsec: z.string().min(60).max(120).regex(/^nsec1/),
+        nsec: z
+          .string()
+          .min(60)
+          .max(120)
+          .regex(/^nsec1/),
       }),
     )
     .output(z.object({ createdAt: z.string() }))
     .errors({ BAD_REQUEST, UNAUTHORIZED }),
 
   vaultGet: oc
-    .route({ method: "GET", path: "/v1/nostr/vault", summary: "Recover stored nsec (owner session only)" })
+    .route({
+      method: "GET",
+      path: "/v1/nostr/vault",
+      summary: "Recover stored nsec (owner session only)",
+    })
     .input(z.object({}))
     .output(z.object({ nsec: z.string(), createdAt: z.string() }).nullable())
     .errors({ UNAUTHORIZED }),
