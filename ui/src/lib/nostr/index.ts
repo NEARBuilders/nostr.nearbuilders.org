@@ -8,10 +8,27 @@ export {
   type SignedBindingEvent,
   signBindingChallenge,
 } from "./binding";
-export type { NostrSession } from "./keys";
-export { clearSession, generateAndStore, loadSession, saveSession, secretKeyBytes } from "./keys";
+export type { NostrKeySource, NostrSession } from "./keys";
+export {
+  clearSession,
+  generateAndStore,
+  importAndStore,
+  loadSession,
+  normalizeSecret,
+  saveSession,
+  secretKeyBytes,
+  secretToNsec,
+} from "./keys";
 export { getProfile, listComments, publishComment } from "./relay";
+export type { Nip07Provider, NostrSigner, SignedNostrEvent } from "./signers";
+export {
+  getNip07,
+  signerFromSession,
+  signerPubkey,
+  signWithSigner,
+} from "./signers";
 export { buildThreads, type OrphanPolicy, type ThreadNode } from "./threads";
+
 export type {
   NearNostrComment,
   NearNostrTarget,

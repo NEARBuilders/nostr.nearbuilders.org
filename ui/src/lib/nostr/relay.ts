@@ -1,5 +1,6 @@
 import { SimplePool } from "nostr-tools/pool";
-import { finalizeEvent, getPublicKey } from "nostr-tools/pure";
+import { type EventTemplate, finalizeEvent, getPublicKey } from "nostr-tools/pure";
+import { type NostrSigner, signWithSigner } from "./signers";
 import { COMMENT_KINDS, Kind, type NearNostrComment, type NearNostrTarget } from "./types";
 
 const DEFAULT_RELAYS = ["wss://relay.damus.io", "wss://nos.lol", "wss://relay.primal.net"];
@@ -159,4 +160,54 @@ export async function getProfile(
   } finally {
     p.close(relayList);
   }
+}
+
+// --- signer-based event signing (PR: key lifecycle) ---
+export type SignedNostrEvent = import("./signers").SignedNostrEvent;
+
+const CLIENT_NAME = "nostr.nearbuilders.org";
+
+const nearTargetKey = (targetType: string, target: string): string => `${targetType}:${target}`;
+
+export type SignCommentEventOptions = {
+  content: string;
+  target: NearNostrTarget;
+  nearAccountId: string;
+  signer: NostrSigner;
+  parentEventId?: string;
+};
+
+/**
+ * Build & sign a kind-1 comment event whose tags match what the plugin's
+ * `createComment` validator expects:
+ *
+ *   - `near_target` = `<targetType>:<id>`  (composite, validated server-side)
+ *   - `near_account` = `<NEAR account>`     (so requireBound/requireVerified work)
+ *   - `t` × 2 -- targetType + clientName -- keeps relay-side filtering (#t) useful
+ *   - `client` = clientName (NIP-24)
+ *   - `e` reply marker -- NIP-10 parent link when present
+ *
+ * Signing runs through a NostrSigner: either a locally stored secret key or a
+ * NIP-07 browser extension. The plugin then verifies the signature, re-asserts
+ * the near_target tag, and publishes via the relay transport.
+ */
+export async function signCommentEvent(opts: SignCommentEventOptions): Promise<SignedNostrEvent> {
+  const tags: string[][] = [
+    ["t", opts.target.type],
+    ["t", CLIENT_NAME],
+    ["client", CLIENT_NAME],
+    ["near_target", nearTargetKey(opts.target.type, opts.target.id)],
+    ["near_account", opts.nearAccountId],
+  ];
+  if (opts.parentEventId) {
+    tags.push(["e", opts.parentEventId, "", "reply"]);
+  }
+
+  const template: EventTemplate = {
+    kind: 1,
+    created_at: Math.floor(Date.now() / 1000),
+    tags,
+    content: opts.content,
+  };
+  return signWithSigner(opts.signer, template);
 }
