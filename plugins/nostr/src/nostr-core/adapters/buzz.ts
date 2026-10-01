@@ -209,7 +209,11 @@ export class BuzzAdapter implements RelayAdapter {
       tags.push(["p", `_near:${opts.nearAccountId}`]);
     }
     if (opts.parentEventId) {
+      tags.push(["e", opts.rootEventId ?? opts.parentEventId, "", "root"]);
       tags.push(["e", opts.parentEventId, "", "reply"]);
+      if (opts.parentPubkey) {
+        tags.push(["p", opts.parentPubkey]);
+      }
     }
     if (opts.targetUrl) {
       tags.push(["r", opts.targetUrl]);

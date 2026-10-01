@@ -91,6 +91,19 @@ export const assertCommentTagsMatchRequest = (
   return null;
 };
 
+/**
+ * NIP-10 thread pointers from raw event tags. `root` marks the thread root;
+ * when only a `reply` marker exists (legacy single-tag replies), the reply
+ * target doubles as root so `buildThreads` consumers always have a root.
+ */
+export const extractThreadIds = (
+  tags: string[][],
+): { parentEventId?: string; rootEventId?: string } => {
+  const parentEventId = tags.find((t) => t[0] === "e" && t[3] === "reply")?.[1];
+  const rootEventId = tags.find((t) => t[0] === "e" && t[3] === "root")?.[1] ?? parentEventId;
+  return { parentEventId, rootEventId };
+};
+
 const toComment = (
   event: NostrEvent,
   target: string,
@@ -103,7 +116,7 @@ const toComment = (
   target,
   targetType,
   nearAccountId: event.tags.find((t) => t[0] === "near_account")?.[1],
-  parentEventId: event.tags.find((t) => t[0] === "e" && t[3] === "reply")?.[1],
+  ...extractThreadIds(event.tags),
   createdAt: event.created_at,
   tags: event.tags,
   source,

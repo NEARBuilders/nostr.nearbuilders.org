@@ -159,6 +159,7 @@ export declare const contract: {
             targetType: z.ZodString;
             nearAccountId: z.ZodNullable<z.ZodOptional<z.ZodString>>;
             parentEventId: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+            rootEventId: z.ZodNullable<z.ZodOptional<z.ZodString>>;
             createdAt: z.ZodNumber;
             tags: z.ZodOptional<z.ZodArray<z.ZodArray<z.ZodString>>>;
             source: z.ZodEnum<{
