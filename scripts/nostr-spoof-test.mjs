@@ -36,7 +36,7 @@ await Promise.allSettled(
       await pr;
       statuses.push([relays[i], "OK"]);
     } catch (e) {
-      statuses.push([relays[i], "REJECTED: " + (e?.message ?? e)]);
+      statuses.push([relays[i], `REJECTED: ${e?.message ?? e}`]);
     }
   }),
 );

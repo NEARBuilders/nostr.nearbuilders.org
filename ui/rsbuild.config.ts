@@ -37,6 +37,29 @@ const bosConfig = fs.existsSync(resolvedConfigPath)
     })()
   : JSON.parse(fs.readFileSync(bosConfigPath, "utf8"));
 
+// Module Federation remotes this app consumes (#55). Kept out of bos.config.json: the bos
+// config resolver only passes a fixed set of known top-level keys through to
+// .bos/bos.resolved-config.json and silently drops anything else, so a custom "remotes" key
+// there never survives resolution. Read straight off disk instead, the same way bosConfig is
+// above. COMPONENTS_REMOTE_DEV_URL lets a developer override the "development" URL below —
+// nearbuilders.org's own UI dev server defaults to the same port (3003) this app's UI dev
+// server uses, so testing federation locally means running it with a PORT override, e.g.
+// `PORT=3010 bun run dev:ui` from a nearbuilders.org checkout, matching the default here.
+const remotesConfigPath = path.resolve(__dirname, "./remotes.config.json");
+const remotesConfig = JSON.parse(fs.readFileSync(remotesConfigPath, "utf8")) as Record<
+  string,
+  {
+    development: string;
+    production: string;
+    integrity: string;
+    ssr: string | null;
+    ssrIntegrity: string | null;
+  }
+>;
+const componentsRemote = remotesConfig.components;
+const componentsRemoteDevUrl =
+  process.env.COMPONENTS_REMOTE_DEV_URL ?? componentsRemote.development;
+
 function getInstalledVersion(pkgName: string, fallback: string): string {
   try {
     let currentDir = path.dirname(require.resolve(pkgName));
@@ -142,6 +165,19 @@ function createClientConfig() {
       define: {
         "import.meta.env.APP_NAME": JSON.stringify(bosConfig.domain),
         "import.meta.env.APP_ACCOUNT": JSON.stringify(bosConfig.account),
+        // Consumed by the loadRemote shim (#56) to call registerRemotes() at runtime — no
+        // build-time `remotes` entry, per the citynode v2 pattern this ticket follows.
+        "import.meta.env.COMPONENTS_REMOTE_DEV_URL": JSON.stringify(componentsRemoteDevUrl),
+        "import.meta.env.COMPONENTS_REMOTE_PRODUCTION_URL": JSON.stringify(
+          componentsRemote.production,
+        ),
+        // SRI hash of nearbuilders.org's current production remoteEntry.js (see
+        // remotes.config.json for how it was computed). Passed by hydrate.tsx into
+        // loadFederatedComponents(), which fetches and hashes the entry itself before
+        // registerRemotes() — the MF runtime's registerRemotes() has no integrity option. Only
+        // the production URL is pinned; the dev URL is a local, developer-controlled server and
+        // stays unpinned.
+        "import.meta.env.COMPONENTS_REMOTE_INTEGRITY": JSON.stringify(componentsRemote.integrity),
       },
     },
     resolve: {
@@ -227,7 +263,7 @@ function createServerConfig() {
   if (shouldDeploy) {
     plugins.push(
       withZephyr({
-        entrypoint: "remoteEntry.server.js",
+        snapshotType: "csr",
         hooks: {
           onDeployComplete: async (info) => {
             console.log("🚀 UI SSR Deployed:", info.url);
@@ -251,6 +287,12 @@ function createServerConfig() {
     source: {
       entry: {
         index: "./src/router.server.tsx",
+      },
+      define: {
+        // Null today: nearbuilders.org#260 (SSR expose of components from its node build)
+        // hasn't shipped, so there's no real SSR remote to point at yet (#55, #56).
+        // loadFederatedComponents() no-ops on a null/undefined entry URL.
+        "import.meta.env.COMPONENTS_REMOTE_SSR_URL": JSON.stringify(componentsRemote.ssr),
       },
     },
     resolve: {
