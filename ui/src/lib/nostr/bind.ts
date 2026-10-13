@@ -1,6 +1,8 @@
-import { finalizeEvent } from "nostr-tools/pure";
+import type { EventTemplate } from "nostr-tools/pure";
 import type { ApiClient } from "@/lib/api";
 import type { AuthClient } from "@/lib/auth";
+import type { NostrSigner } from "./signers";
+import { signWithSigner } from "./signers";
 
 export type BindingWriteArgs = {
   contractId: string;
@@ -13,26 +15,25 @@ export type BindingWriteArgs = {
 };
 
 /**
- * Sign the kind-27235 binding proof event with the local Nostr key.
- * Content must be the server-issued challenge (`bind:<account>:<expiry>:<label>`);
- * the `p` tag names the NEAR account being bound (NEAR-nostr convention).
- * The server injects the kind when verifying, so only the six signed fields
- * minus `kind` are sent to `verifyBinding`.
+ * Sign the kind-27235 binding proof event with a NostrSigner (local key or
+ * NIP-07 extension). Content must be the server-issued challenge
+ * (`bind:<account>:<expiry>:<label>`); the `p` tag names the NEAR account
+ * being bound (NEAR-nostr convention). The server injects the kind when
+ * verifying, so only the six signed fields minus `kind` are sent to
+ * `verifyBinding`.
  */
-export function signBindingEvent(opts: {
+export async function signBindingEvent(opts: {
   challenge: string;
   nearAccountId: string;
-  secretKey: Uint8Array;
+  signer: NostrSigner;
 }) {
-  return finalizeEvent(
-    {
-      kind: 27235,
-      created_at: Math.floor(Date.now() / 1000),
-      tags: [["p", opts.nearAccountId]],
-      content: opts.challenge,
-    },
-    opts.secretKey,
-  );
+  const template: EventTemplate = {
+    kind: 27235,
+    created_at: Math.floor(Date.now() / 1000),
+    tags: [["p", opts.nearAccountId]],
+    content: opts.challenge,
+  };
+  return signWithSigner(opts.signer, template);
 }
 
 /**
@@ -45,19 +46,36 @@ export async function submitBindingWrite(
   authClient: AuthClient,
   tx: BindingWriteArgs,
   accountId: string,
-): Promise<void> {
-  const connected = await authClient.near.ensureConnected();
-  if (!connected) {
-    throw new Error("Wallet connection required to sign the binding transaction");
+): Promise<string> {
+  const near = authClient.near;
+  // Dev bypass wrappers (or older clients) may omit ensureConnected — treat
+  // it as "already connected" rather than crashing with TypeError.
+  if (typeof near.ensureConnected === "function") {
+    const connected = await near.ensureConnected();
+    if (!connected) {
+      throw new Error("Wallet connection required to sign the binding transaction");
+    }
   }
-  const client = authClient.near.getNearClient();
+  // The wallet that just signed in is the authoritative tx signer — prefer it
+  // over the page-level account id, which can be a dev-bypass identity.
+  let signerId = accountId;
+  try {
+    if (typeof near.getAccountId === "function") {
+      const real = near.getAccountId();
+      if (real) signerId = real;
+    }
+  } catch {
+    // keep accountId
+  }
+  const client = near.getNearClient();
   await client
-    .transaction(accountId)
+    .transaction(signerId)
     .functionCall(tx.contractId, tx.methodName, tx.args, {
       gas: `${Number(tx.gas)}`,
       attachedDeposit: BigInt(tx.attachedDeposit),
     })
     .send({ waitUntil: "FINAL" });
+  return signerId;
 }
 
 /**

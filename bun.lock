@@ -68,7 +68,7 @@
     },
     "plugins/nostr": {
       "name": "@every-plugin/nostr",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "dependencies": {
         "@orpc/contract": "catalog:",
         "@orpc/server": "catalog:",
@@ -86,6 +86,7 @@
         "every-plugin": "catalog:",
         "everything-dev": "catalog:",
         "vite-tsconfig-paths": "^5.1.4",
+        "vitest": "catalog:",
         "zephyr-rspack-plugin": "catalog:",
       },
       "peerDependencies": {
@@ -94,7 +95,7 @@
     },
     "ui": {
       "name": "ui",
-      "version": "1.9.0",
+      "version": "1.9.1",
       "dependencies": {
         "@better-auth/api-key": "catalog:",
         "@better-auth/core": "catalog:",
