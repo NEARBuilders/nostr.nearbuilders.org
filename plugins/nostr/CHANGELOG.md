@@ -1,5 +1,33 @@
 # @every-plugin/template
 
+## 1.2.0
+
+### Minor Changes
+
+- f781a94: Add general signed-event subscriptions with bounded reconnect/replay and cleanup.
+  Make raw queries report relay failures and result limits, support 1,000-event scans,
+  and align reported and effective relay configuration. Raw publishing accepts verified
+  signed events without a user session; raw destinations must be configured relays.
+  Keep comment and binding authentication and add runtime, HTTP, and bundle coverage.
+
+### Patch Changes
+
+- 2f6abf9: Use the runtime's built-in `WebSocket` for relay connections, falling back to `ws` only when
+  none exists. In production the plugin runs on Bun, where the bundled `ws` library fails every
+  handshake: Bun's `https` client reports the `101 Switching Protocols` reply as a `'response'`
+  event instead of `'upgrade'`, so `ws` aborts with `Unexpected server response: 101`. Every relay
+  connection therefore failed and surfaced as `RELAY_UNAVAILABLE` ("Could not connect to relay").
+- 32be005: Add `relay.nearbuilders.org` (activity.nearbuilders.org's own relay, running
+  `ghcr.io/mattn/nostr-relay`) to the production `STANDARD_RELAYS` allowlist, alongside the
+  existing defaults (`relay.damus.io`, `nos.lol`, `relay.primal.net`) — purely additive, nothing
+  existing removed.
+
+  Note: this only fixes the allowlist. Whether the deployed plugin can actually reach the new
+  relay is a separate, currently-open question — production `queryEvents`/`publishEvent` against
+  the existing default relays have been failing with `RELAY_UNAVAILABLE` in the caller repo
+  (activity.nearbuilders.org) throughout this cycle. That needs verifying after this deploys, not
+  assumed fixed by this change alone.
+
 ## 1.1.0
 
 ### Minor Changes
