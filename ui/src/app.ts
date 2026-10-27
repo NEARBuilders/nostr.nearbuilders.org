@@ -118,6 +118,7 @@ export type {
   RenderResult,
   RouterModule,
 } from "everything-dev/ui/types";
+import { APP_LOCALE_COOKIE, APP_LOCALES, DEFAULT_APP_LOCALE } from "./i18n/catalogs";
 
 export interface RouterContext extends BaseRouterContextWithApi<ApiClient, SessionData> {
   apiClient: ApiClient;
@@ -133,4 +134,17 @@ export interface RenderOptions extends Omit<BaseRenderOptions<SessionData>, "run
   runtimeConfig: BaseRenderOptions<SessionData>["runtimeConfig"];
   apiClient: ApiClient;
   authClient?: AuthClientType;
+}
+
+export const appLocale = {
+  locales: APP_LOCALES,
+  defaultLocale: DEFAULT_APP_LOCALE,
+  cookieName: APP_LOCALE_COOKIE,
+};
+
+export function apiConnectionError() {
+  return {
+    title: "Unable to connect to the API",
+    description: "The API is currently unavailable. Please try again later.",
+  };
 }

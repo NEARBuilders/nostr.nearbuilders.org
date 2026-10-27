@@ -1,7 +1,7 @@
 {
   "name": "@every-plugin/nostr",
   "version": "1.1.0",
-  "description": "Nostr integration plugin — NEAR account binding, comments, relay operations",
+  "description": "Nostr integration plugin \u2014 NEAR account binding, comments, relay operations",
   "type": "module",
   "exports": {
     ".": {
@@ -36,10 +36,8 @@
     "vitest": "catalog:"
   },
   "scripts": {
-    "build": "pnpm run build:types && rspack build",
-    "build:types": "tsc -p tsconfig.contract.json",
-    "deploy": "pnpm run build:types && DEPLOY=true rspack build",
-    "dev": "pnpm run build:types && rspack serve",
+    "build": "every-plugin build",
+    "dev": "every-plugin dev",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "test:bundle": "pnpm run build && vitest run --config vitest.bundle.config.ts"
