@@ -18,7 +18,10 @@ it("publishes and streams signed events over HTTP without cookies or API keys", 
   });
   const handler = new RPCHandler(plugin.router);
   const server = createServer(async (request, response) => {
-    const result = await handler.handle(request, response, { prefix: "/rpc", context: {} });
+    const result = await handler.handle(request, response, {
+      prefix: "/rpc",
+      context: { "effect/context": plugin.initialized.effectContext },
+    });
     if (!result.matched) {
       response.statusCode = 404;
       response.end();
@@ -29,7 +32,7 @@ it("publishes and streams signed events over HTTP without cookies or API keys", 
   const address = server.address();
   if (!address || typeof address === "string") throw new Error("HTTP server has no address");
   const client: PluginClientType<typeof Plugin> = createORPCClient(
-    new RPCLink({ url: `http://127.0.0.1:${address.port}/rpc` }),
+    new RPCLink({ origin: `http://127.0.0.1:${address.port}`, url: "/rpc" }),
   );
   const controller = new AbortController();
   try {

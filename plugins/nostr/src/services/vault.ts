@@ -1,6 +1,6 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import { createRequire } from "node:module";
-import { Context, Effect, Layer } from "every-plugin/effect";
+import { Context, Effect, Layer } from "effect";
 
 // pg is loaded lazily via createRequire: a static import would pull pg's
 // ESM-fragile class chain into the Module Federation bundle, which breaks
@@ -62,14 +62,14 @@ export interface VaultEntry {
   createdAt: string;
 }
 
-export class VaultService extends Context.Tag("nostr.VaultService")<
+export class VaultService extends Context.Service<
   VaultService,
   {
     store(nearAccount: string, nsec: string): Effect.Effect<{ createdAt: string }, Error>;
     load(nearAccount: string): Effect.Effect<VaultEntry | null, Error>;
     remove(nearAccount: string): Effect.Effect<boolean, Error>;
   }
->() {}
+>()("nostr.VaultService") {}
 
 export const VaultServiceLive = Layer.effect(
   VaultService,
@@ -111,7 +111,7 @@ export const VaultServiceLive = Layer.effect(
         `),
       catch: () => new Error("vault: migration failed"),
     }).pipe(
-      Effect.catchAll(() =>
+      Effect.catch(() =>
         Effect.logWarning("[Vault] migration failed — vault disabled until DB is reachable"),
       ),
       Effect.orDie,

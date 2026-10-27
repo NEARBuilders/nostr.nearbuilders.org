@@ -1,6 +1,6 @@
-import { Context, Layer } from "every-plugin/effect";
-import { z } from "every-plugin/zod";
+import { Context, Layer } from "effect";
 import { nip19 } from "nostr-tools";
+import { z } from "zod";
 
 const DEFAULT_KV_API = "https://kv.main.fastnear.com";
 const DEFAULT_BINDING_CONTRACT = "contextual.near";
@@ -80,10 +80,9 @@ function decodeSecret(value: string | undefined): Uint8Array | undefined {
   return new Uint8Array(Buffer.from(value, "hex"));
 }
 
-export class NostrConfigTag extends Context.Tag("nostr/Config")<
-  NostrResolvedConfig,
-  NostrResolvedConfig
->() {}
+export class NostrConfigTag extends Context.Service<NostrConfigTag, NostrResolvedConfig>()(
+  "nostr/Config",
+) {}
 
 export function resolveNostrConfig(
   variables: NostrVariables,

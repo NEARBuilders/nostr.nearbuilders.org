@@ -9,9 +9,9 @@
  * guards share one resolution semantics and cannot disagree into a
  * /login <-> protected-route redirect ping-pong.
  */
-export function requireSession(args: {
-  context: { session: SessionData | null | undefined };
-}): { session: SessionData | null } {
+export function requireSession(args: { context: { session: SessionData | null | undefined } }): {
+  session: SessionData | null;
+} {
   const session = args.context.session;
   if (!session?.user) {
     throw new Error("No active session");
@@ -39,8 +39,8 @@ export function requireSession(args: {
  * then run `pnpm run typecheck`.
  */
 export function resolveSessionFromCache(
-  queryClient: { getQueryData: (key: unknown[]) => unknown },
-  session: SessionData | null | undefined
+  queryClient: { getQueryData: (key: readonly unknown[]) => unknown },
+  session: SessionData | null | undefined,
 ): SessionData | null {
   const cached = queryClient.getQueryData(sessionQueryKey);
   if (cached !== undefined) return cached as SessionData | null;

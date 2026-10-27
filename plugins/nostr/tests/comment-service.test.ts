@@ -1,4 +1,4 @@
-import { Cause, Effect, Exit, Layer, Option } from "every-plugin/effect";
+import { Cause, Effect, Exit, Layer, Option } from "effect";
 import { describe, expect, it } from "vitest";
 import { NostrConfigLive, type NostrResolvedConfig } from "../src/lib/nostr-config";
 import {

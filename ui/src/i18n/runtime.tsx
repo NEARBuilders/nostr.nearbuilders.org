@@ -1,6 +1,6 @@
 import { createLocaleRuntime } from "everything-dev/ui/i18n";
 import type { ReactNode } from "react";
-import { APP_LOCALES, APP_LOCALE_COOKIE, DEFAULT_APP_LOCALE, getAppMessages } from "./catalogs";
+import { APP_LOCALE_COOKIE, APP_LOCALES, DEFAULT_APP_LOCALE, getAppMessages } from "./catalogs";
 
 const appRuntime = createLocaleRuntime({
   locales: APP_LOCALES,

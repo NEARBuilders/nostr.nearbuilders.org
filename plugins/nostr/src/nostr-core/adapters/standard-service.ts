@@ -1,13 +1,13 @@
-import { Context, Effect, Layer } from "every-plugin/effect";
+import { Context, Effect, Layer } from "effect";
 import { NostrConfigTag } from "../../lib/nostr-config";
 import { StandardAdapter } from "./standard";
 
-export class StandardAdapterService extends Context.Tag("nostr/StandardAdapter")<
+export class StandardAdapterService extends Context.Service<
   StandardAdapterService,
   StandardAdapter
->() {}
+>()("nostr/StandardAdapter") {}
 
-export const StandardAdapterLive = Layer.scoped(
+export const StandardAdapterLive = Layer.effect(
   StandardAdapterService,
   Effect.acquireRelease(
     Effect.gen(function* () {

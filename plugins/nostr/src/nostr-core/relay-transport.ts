@@ -1,4 +1,4 @@
-import { ORPCError } from "every-plugin/orpc";
+import { ORPCError } from "@orpc/server";
 import type { SimplePool } from "nostr-tools/pool";
 import type { NostrEvent, NostrFilter } from "./types";
 
@@ -16,7 +16,6 @@ export class RelayTransport {
   #operation(signal?: AbortSignal): AbortController {
     if (this.#closed) {
       throw new ORPCError("RELAY_UNAVAILABLE", {
-        status: 503,
         message: "Relay transport is closed",
       });
     }
@@ -74,14 +73,11 @@ export class RelayTransport {
         else resolve(events);
       };
       const abort = () =>
-        finish(
-          new ORPCError("RELAY_UNAVAILABLE", { status: 503, message: "Relay query cancelled" }),
-        );
+        finish(new ORPCError("RELAY_UNAVAILABLE", { message: "Relay query cancelled" }));
       const timer = setTimeout(
         () =>
           finish(
             new ORPCError("RELAY_TIMEOUT", {
-              status: 504,
               message: "Relay did not finish its response",
             }),
           ),
@@ -104,7 +100,6 @@ export class RelayTransport {
             onclose: () =>
               finish(
                 new ORPCError("RELAY_UNAVAILABLE", {
-                  status: 503,
                   message: "Relay closed before completing its response",
                 }),
               ),
@@ -114,7 +109,6 @@ export class RelayTransport {
         .catch(() =>
           finish(
             new ORPCError("RELAY_UNAVAILABLE", {
-              status: 503,
               message: "Could not connect to relay",
             }),
           ),
@@ -145,7 +139,6 @@ export class RelayTransport {
       if (queue.length >= MAX_EVENTS) {
         fail(
           new ORPCError("RELAY_LIMIT", {
-            status: 503,
             message: "Live event consumer is too slow; resume from a persisted boundary",
           }),
         );
@@ -155,7 +148,6 @@ export class RelayTransport {
       if (seen.size > MAX_SEEN) {
         fail(
           new ORPCError("RELAY_LIMIT", {
-            status: 503,
             message: "Subscription deduplication limit reached; resume from a persisted boundary",
           }),
         );
@@ -228,7 +220,6 @@ export class RelayTransport {
         deadline = setTimeout(() => {
           fail(
             new ORPCError("RELAY_TIMEOUT", {
-              status: 504,
               message: "Relay did not complete subscription replay",
             }),
           );
@@ -240,7 +231,6 @@ export class RelayTransport {
             if (!live && stored >= limit && limit > 0) {
               fail(
                 new ORPCError("RELAY_LIMIT", {
-                  status: 503,
                   message: "Subscription history reached its limit; narrow the replay range",
                 }),
               );
@@ -264,7 +254,6 @@ export class RelayTransport {
             if (/^(auth-required|restricted|invalid|blocked):/.test(reason)) {
               fail(
                 new ORPCError("RELAY_UNAVAILABLE", {
-                  status: 503,
                   message: "Relay rejected the subscription",
                   data: { relay: url, reason },
                 }),
@@ -277,7 +266,6 @@ export class RelayTransport {
         if (initial)
           fail(
             new ORPCError("RELAY_UNAVAILABLE", {
-              status: 503,
               message: "Could not connect to relay",
             }),
           );

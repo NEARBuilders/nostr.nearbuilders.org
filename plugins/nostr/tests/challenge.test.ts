@@ -1,4 +1,4 @@
-import { Effect, Exit } from "every-plugin/effect";
+import { Effect, Exit } from "effect";
 import { describe, expect, it } from "vitest";
 import { expectBadRequest, makeBindingEvent, withBinding } from "./helpers";
 

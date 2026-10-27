@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { Context, Effect, Layer, Option } from "every-plugin/effect";
+import { Context, Effect, Layer, Option } from "effect";
 import { NostrConfigTag } from "../../lib/nostr-config";
 import { BuzzAdapter } from "./buzz";
 
@@ -15,15 +15,15 @@ import { BuzzAdapter } from "./buzz";
  * NostrCommentService.getAdapter helper short-circuits with a BAD_REQUEST in
  * that case.
  */
-export class BuzzAdapterService extends Context.Tag("nostr/BuzzAdapter")<
+export class BuzzAdapterService extends Context.Service<
   BuzzAdapterService,
   Option.Option<BuzzAdapter>
->() {}
+>()("nostr/BuzzAdapter") {}
 
 const resolveChannel = (target: string): string =>
   createHash("sha256").update(target).digest("hex").slice(0, 16);
 
-export const BuzzAdapterLive = Layer.scoped(
+export const BuzzAdapterLive = Layer.effect(
   BuzzAdapterService,
   Effect.gen(function* () {
     const { buzzRelays, buzzSecretKey } = yield* NostrConfigTag;
