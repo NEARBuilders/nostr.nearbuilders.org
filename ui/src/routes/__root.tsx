@@ -1,3 +1,5 @@
+import { AppI18nProvider } from "@/i18n/runtime";
+import { resolveSessionFromCache } from "@/lib/auth";
 /**
  * HTML shell — head/scripts/styles, runtime config handoff.
  * Root boundary between the host-rendered document and the UI application.
@@ -28,7 +30,7 @@ import TanStackQueryDevtools from "../integrations/tanstack-query/devtools";
 
 export const Route = createRootRouteWithContext<RouterContext>()({
   beforeLoad: async ({ context }) => {
-    const session = context.session;
+    const session = resolveSessionFromCache(context.queryClient, context.session);
 
     return {
       runtimeConfig: context.runtimeConfig,
@@ -38,9 +40,9 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   },
   loader: async ({ context }) => {
     const { queryClient } = context;
-    const session = context.session;
+    const session = resolveSessionFromCache(queryClient, context.session);
 
-    if (session && queryClient) {
+    if (session !== undefined && queryClient) {
       queryClient.setQueryData(sessionQueryKey, session);
     }
 
@@ -154,7 +156,9 @@ function RootComponent() {
       <body>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem nonce={cspNonce}>
           <div id="root">
-            <Outlet />
+            <AppI18nProvider>
+              <Outlet />
+            </AppI18nProvider>
           </div>
           <Toaster position={isDesktop ? "bottom-right" : "top-center"} closeButton />
         </ThemeProvider>

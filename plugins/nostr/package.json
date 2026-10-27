@@ -33,16 +33,15 @@
     "everything-dev": "catalog:",
     "every-plugin": "catalog:",
     "vite-tsconfig-paths": "^5.1.4",
-    "zephyr-rspack-plugin": "catalog:",
     "vitest": "catalog:"
   },
   "scripts": {
-    "build": "bun run build:types && rspack build",
+    "build": "pnpm run build:types && rspack build",
     "build:types": "tsc -p tsconfig.contract.json",
-    "deploy": "bun run build:types && DEPLOY=true rspack build",
-    "dev": "bun run build:types && rspack serve",
+    "deploy": "pnpm run build:types && DEPLOY=true rspack build",
+    "dev": "pnpm run build:types && rspack serve",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
-    "test:bundle": "bun run build && vitest run --config vitest.bundle.config.ts"
+    "test:bundle": "pnpm run build && vitest run --config vitest.bundle.config.ts"
   }
 }

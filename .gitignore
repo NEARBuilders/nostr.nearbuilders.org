@@ -1,3 +1,5 @@
+**/*.gen.tsx
+ui/src/manifest.gen.json
  ### macOS template
 # General
 .DS_Store
