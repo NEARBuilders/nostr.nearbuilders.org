@@ -6,9 +6,8 @@ name: Staging
 # child's framework surface is pinned via `platform` (ADR 0034) and moves
 # exclusively through `bos upgrade`.
 on:
-  push:
-    branches:
-      - staging
+  # Manual-only until the v2 production flip: live v1 consumers extend this
+  # app's published config, so a v2 publish must be deliberate.
   workflow_dispatch:
     inputs:
       verbose:

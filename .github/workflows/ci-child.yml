@@ -1,0 +1,36 @@
+name: Child CI Jobs
+
+# CHILD-OWNED — bos upgrade never rewrites this file (#538). This repo's extra
+# CI jobs live here. `ci.yml` (framework-owned) calls this workflow in parallel
+# with the pinned reusable `ci` call and includes its result in the merge gate.
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  nostr-bundle:
+    name: Nostr plugin bundle test
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Enable pnpm via corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Generate types
+        run: pnpm run postinstall
+
+      - name: Build the plugin remote and load it through the runtime
+        run: pnpm --dir plugins/nostr run test:bundle
