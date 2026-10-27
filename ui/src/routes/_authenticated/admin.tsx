@@ -2,7 +2,7 @@ import { createFileRoute, Link, Outlet, redirect, useRouterState } from "@tansta
 import { LayoutDashboard, Shield, Terminal } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/_layout/_authenticated/admin")({
+export const Route = createFileRoute("/_authenticated/admin")({
   beforeLoad: async ({ context }) => {
     const auth = context.auth;
     if (!auth?.user || auth.user.role !== "admin") {

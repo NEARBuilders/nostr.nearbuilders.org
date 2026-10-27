@@ -4,7 +4,7 @@ import { getAccount } from "@/app";
 import { Button, Card } from "@/components";
 import { PageContainer } from "@/components/layout/page-container";
 
-export const Route = createFileRoute("/_layout/_authenticated/admin/")({
+export const Route = createFileRoute("/_authenticated/admin/")({
   head: () => ({
     meta: [{ title: "Admin Dashboard | app" }],
   }),

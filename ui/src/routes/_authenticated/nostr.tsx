@@ -8,7 +8,7 @@ import { NostrIdentityCard } from "@/components/nostr/nostr-identity-card";
 
 const TARGET = { type: "project" as const, id: "test-nostr-page" };
 
-export const Route = createFileRoute("/_layout/_authenticated/nostr")({
+export const Route = createFileRoute("/_authenticated/nostr")({
   head: () => ({
     meta: [{ title: "Nostr Testbench | app" }],
   }),

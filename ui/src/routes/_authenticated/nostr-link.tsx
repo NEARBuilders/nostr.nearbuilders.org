@@ -30,7 +30,7 @@ const STEP_LABELS: Array<{ key: Step; label: string; icon: typeof PenLine }> = [
   { key: "done", label: "Identity linked", icon: Check },
 ];
 
-export const Route = createFileRoute("/_layout/_authenticated/nostr-link")({
+export const Route = createFileRoute("/_authenticated/nostr-link")({
   head: () => ({ meta: [{ title: "Link Nostr Identity | NEAR Builders" }] }),
   component: NostrLinkPage,
 });

@@ -7,7 +7,7 @@ import { useAuthClient } from "@/app";
 import { Button, Card, CardContent, Input } from "@/components";
 import { PageContainer } from "@/components/layout/page-container";
 
-export const Route = createFileRoute("/_layout/_authenticated/organizations/new")({
+export const Route = createFileRoute("/_authenticated/organizations/new")({
   head: () => ({
     title: "New Organization | auth.everything.dev",
     meta: [{ name: "description", content: "Create a new organization." }],

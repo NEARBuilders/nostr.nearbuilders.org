@@ -1,13 +1,9 @@
-import { createFileRoute, Outlet, useRouterState } from "@tanstack/react-router";
+import { useRouterState } from "@tanstack/react-router";
 import { X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
-export const Route = createFileRoute("/_layout")({
-  component: Layout,
-});
-
-function Layout() {
+export function SiteShell({ children }: { children: ReactNode }) {
   const isNavigating = useRouterState({ select: (s) => s.status === "pending" });
 
   const [betaBannerDismissed, setBetaBannerDismissed] = useState(() => {
@@ -51,7 +47,7 @@ function Layout() {
           </div>
         )}
 
-        <Outlet />
+        {children}
       </div>
     </TooltipProvider>
   );

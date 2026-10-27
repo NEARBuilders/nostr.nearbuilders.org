@@ -3,7 +3,7 @@ import { ArrowRight, KeyRound, MessageSquare, Radio, Sparkles } from "lucide-rea
 import { getAccount, getActiveRuntime, getAppName, getRepository } from "@/app";
 import { Button, Card, PageContainer } from "@/components";
 
-export const Route = createFileRoute("/_layout/_public/")({
+export const Route = createFileRoute("/_public/")({
   loader: async ({ context }) => ({
     runtimeConfig: context.runtimeConfig,
   }),

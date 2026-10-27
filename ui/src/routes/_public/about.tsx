@@ -41,7 +41,7 @@ async function fetchRepositoryReadme(repositoryUrl: string): Promise<string | nu
   return null;
 }
 
-export const Route = createFileRoute("/_layout/_public/about")({
+export const Route = createFileRoute("/_public/about")({
   loader: async ({ context }) => {
     const repository = getRepository(context.runtimeConfig);
     const description =

@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { SessionData } from "@/app";
 import { getAccount, getActiveRuntime, getAppName, sessionQueryOptions } from "@/app";
 import { NearBranding } from "@/components/near-branding";
+import { SiteShell } from "@/components/site-shell";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -44,7 +45,7 @@ function getUserRole(isAuthenticated: boolean, isAdmin: boolean): SidebarRole {
   return "anon";
 }
 
-export const Route = createFileRoute("/_layout/_authenticated")({
+export const Route = createFileRoute("/_authenticated")({
   beforeLoad: async ({ context, location }) => {
     const { queryClient, authClient } = context;
 
@@ -105,102 +106,104 @@ function AuthenticatedLayout() {
   };
 
   return (
-    <div className="flex-1 flex min-h-0 min-w-0 overflow-hidden">
-      <aside className="hidden sm:flex h-full shrink-0 flex-col items-center border-r border-border bg-card overflow-hidden transition-all duration-300 w-16">
-        <div className="flex-1 w-full overflow-y-auto flex flex-col items-center gap-1.5 py-4 min-h-0 min-w-16">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Link
-                to="/"
-                preload="intent"
-                aria-label={`${appName} home`}
-                className="mb-3 flex items-center justify-center w-10 h-10 border-2 border-outset border-border-strong bg-card shadow-sm transition-shadow duration-200 hover:shadow-md"
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  className="w-5 h-5 text-foreground"
-                  aria-label={`${appName} logo`}
+    <SiteShell>
+      <div className="flex-1 flex min-h-0 min-w-0 overflow-hidden">
+        <aside className="hidden sm:flex h-full shrink-0 flex-col items-center border-r border-border bg-card overflow-hidden transition-all duration-300 w-16">
+          <div className="flex-1 w-full overflow-y-auto flex flex-col items-center gap-1.5 py-4 min-h-0 min-w-16">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link
+                  to="/"
+                  preload="intent"
+                  aria-label={`${appName} home`}
+                  className="mb-3 flex items-center justify-center w-10 h-10 border-2 border-outset border-border-strong bg-card shadow-sm transition-shadow duration-200 hover:shadow-md"
                 >
-                  <title>{appName}</title>
-                  <circle cx="12" cy="12" r="10" />
-                </svg>
-              </Link>
-            </TooltipTrigger>
-            <TooltipContent side="right">{appName}</TooltipContent>
-          </Tooltip>
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    className="w-5 h-5 text-foreground"
+                    aria-label={`${appName} logo`}
+                  >
+                    <title>{appName}</title>
+                    <circle cx="12" cy="12" r="10" />
+                  </svg>
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="right">{appName}</TooltipContent>
+            </Tooltip>
 
-          {visibleItems.map((item) => {
-            const Icon = item.icon;
-            const active = isActive(item);
-            const linkClass = cn(
-              "flex items-center justify-center w-10 h-10 border-2 border-outset border-border-strong shadow-sm transition-all duration-200 ease-out hover:shadow-md",
-              active ? "bg-foreground text-background" : "bg-card text-foreground hover:bg-muted",
-            );
+            {visibleItems.map((item) => {
+              const Icon = item.icon;
+              const active = isActive(item);
+              const linkClass = cn(
+                "flex items-center justify-center w-10 h-10 border-2 border-outset border-border-strong shadow-sm transition-all duration-200 ease-out hover:shadow-md",
+                active ? "bg-foreground text-background" : "bg-card text-foreground hover:bg-muted",
+              );
 
-            return (
-              <Tooltip key={item.label}>
-                <TooltipTrigger asChild>
-                  <Link to={item.to} preload="intent" className={linkClass}>
-                    <Icon className="w-4 h-4" />
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent side="right">{item.label}</TooltipContent>
-              </Tooltip>
-            );
-          })}
-        </div>
+              return (
+                <Tooltip key={item.label}>
+                  <TooltipTrigger asChild>
+                    <Link to={item.to} preload="intent" className={linkClass}>
+                      <Icon className="w-4 h-4" />
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">{item.label}</TooltipContent>
+                </Tooltip>
+              );
+            })}
+          </div>
 
-        <div className="shrink-0 w-full flex justify-center py-3 bg-card border-t border-border z-10">
-          <ThemeToggle className="transition-colors duration-300 hover:opacity-80" />
-        </div>
-      </aside>
+          <div className="shrink-0 w-full flex justify-center py-3 bg-card border-t border-border z-10">
+            <ThemeToggle className="transition-colors duration-300 hover:opacity-80" />
+          </div>
+        </aside>
 
-      <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
-        <header className="shrink-0 bg-card/50 border-b border-border transition-all duration-200 overflow-hidden h-12">
-          <div className="flex items-center justify-between px-4 sm:px-6 h-12">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono min-w-0">
-              <Link
-                aria-label={`${appName} home`}
-                className="sm:hidden flex items-center justify-center w-8 h-8 border-2 border-outset border-border-strong bg-card shadow-sm transition-shadow duration-200 hover:shadow-md"
-                to="/"
-                preload="intent"
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  className="w-4 h-4 text-foreground"
-                  aria-label={`${appName} logo`}
+        <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
+          <header className="shrink-0 bg-card/50 border-b border-border transition-all duration-200 overflow-hidden h-12">
+            <div className="flex items-center justify-between px-4 sm:px-6 h-12">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono min-w-0">
+                <Link
+                  aria-label={`${appName} home`}
+                  className="sm:hidden flex items-center justify-center w-8 h-8 border-2 border-outset border-border-strong bg-card shadow-sm transition-shadow duration-200 hover:shadow-md"
+                  to="/"
+                  preload="intent"
                 >
-                  <title>{appName}</title>
-                  <circle cx="12" cy="12" r="10" />
-                </svg>
-              </Link>
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    className="w-4 h-4 text-foreground"
+                    aria-label={`${appName} logo`}
+                  >
+                    <title>{appName}</title>
+                    <circle cx="12" cy="12" r="10" />
+                  </svg>
+                </Link>
 
-              <div className="hidden sm:flex items-center gap-2">
-                <span>{runtime?.accountId ?? account}</span>
-                <span>/</span>
-                <span className="truncate">
-                  {pathname === "/" ? "home" : pathname.slice(1).split("/").join(" / ")}
-                </span>
+                <div className="hidden sm:flex items-center gap-2">
+                  <span>{runtime?.accountId ?? account}</span>
+                  <span>/</span>
+                  <span className="truncate">
+                    {pathname === "/" ? "home" : pathname.slice(1).split("/").join(" / ")}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <UserNav />
               </div>
             </div>
+          </header>
 
-            <div className="flex items-center gap-2">
-              <UserNav />
+          <main className="flex-1 w-full min-h-0 overflow-y-auto pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))] sm:pb-6">
+            <div key={pathname} className="min-h-full animate-fade-in">
+              <Outlet />
             </div>
-          </div>
-        </header>
+          </main>
+        </div>
 
-        <main className="flex-1 w-full min-h-0 overflow-y-auto pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))] sm:pb-6">
-          <div key={pathname} className="min-h-full animate-fade-in">
-            <Outlet />
-          </div>
-        </main>
+        <MobileTabBar visibleItems={visibleItems} isActive={isActive} />
       </div>
-
-      <MobileTabBar visibleItems={visibleItems} isActive={isActive} />
-    </div>
+    </SiteShell>
   );
 }
 
