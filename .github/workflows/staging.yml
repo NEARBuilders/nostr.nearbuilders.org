@@ -6,8 +6,9 @@ name: Staging
 # child's framework surface is pinned via `platform` (ADR 0034) and moves
 # exclusively through `bos upgrade`.
 on:
-  # Manual-only until the v2 production flip: live v1 consumers extend this
-  # app's published config, so a v2 publish must be deliberate.
+  push:
+    branches:
+      - staging
   workflow_dispatch:
     inputs:
       verbose:
@@ -26,7 +27,7 @@ permissions:
 jobs:
   deploy-staging:
     name: Deploy Staging
-    uses: NEARBuilders/everything-dev/.github/workflows/consumer-staging.yml@v2.0.0-rc.24
+    uses: NEARBuilders/everything-dev/.github/workflows/consumer-staging.yml@v2.0.0-rc.25
     with:
       working_directory: .
       verbose: ${{ inputs.verbose == true }}
