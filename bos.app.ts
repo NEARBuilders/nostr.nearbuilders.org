@@ -16,7 +16,7 @@ export default App({
   repository: "https://github.com/NEARBuilders/nostr.nearbuilders.org",
   ci: {
     railway: {
-      service: "app",
+      service: "nostr-app",
     },
   },
   ui: {
