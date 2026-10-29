@@ -1,4 +1,4 @@
-import { Effect, Exit, Layer } from "every-plugin/effect";
+import { Effect, Exit, Layer } from "effect";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NostrConfigLive, type NostrResolvedConfig } from "../src/lib/nostr-config";
 import { BindingService, BindingServiceLive } from "../src/services/binding";

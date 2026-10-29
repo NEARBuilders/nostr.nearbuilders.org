@@ -1,8 +1,8 @@
+import type { DecoratedMiddleware } from "@orpc/server";
+import { ORPCError } from "@orpc/server";
+import { Context, Effect, Layer } from "effect";
 import { createPlugin } from "every-plugin";
-import { Effect, Layer } from "every-plugin/effect";
-import type { DecoratedMiddleware } from "every-plugin/orpc";
-import { ORPCError } from "every-plugin/orpc";
-import type { z } from "every-plugin/zod";
+import type { z } from "zod";
 import { contract } from "./contract";
 import type { AuthContext } from "./lib/auth";
 import { createAuthMiddleware } from "./lib/auth";
@@ -21,6 +21,16 @@ import { BindingService, BindingServiceLive } from "./services/binding";
 import { NostrCommentService, NostrCommentServiceLive } from "./services/nostr";
 import { VaultService, VaultServiceLive } from "./services/vault";
 
+class NostrServices extends Context.Service<
+  NostrServices,
+  {
+    relays: string[];
+    binding: BindingService["Service"];
+    comments: NostrCommentService["Service"];
+    vault: VaultService["Service"];
+  }
+>()("nostr/Services") {}
+
 export default createPlugin.withPlugins<PluginsClient>()({
   variables: NostrVariablesSchema,
 
@@ -30,39 +40,37 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
   contract,
 
-  initialize: (config, _plugins, tools) =>
-    Effect.gen(function* () {
+  initialize: (config) =>
+    Effect.sync(() => {
       const resolved = resolveNostrConfig(config.variables, config.secrets);
       const configLayer = NostrConfigLive(resolved);
 
-      const binding = yield* tools.buildService(
-        BindingService,
+      const services = Layer.mergeAll(
         BindingServiceLive.pipe(Layer.provide(configLayer)),
-      );
-
-      const comments = yield* tools.buildService(
-        NostrCommentService,
         NostrCommentServiceLive.pipe(
           Layer.provide(BuzzAdapterLive),
           Layer.provide(StandardAdapterLive),
           Layer.provide(configLayer),
         ),
+        VaultServiceLive,
       );
 
-      const vault = yield* tools.buildService(VaultService, VaultServiceLive);
-
-      yield* Effect.logInfo("[Nostr] Services Initialized");
-
-      return { relays: resolved.relays, binding, comments, vault };
+      return Layer.effect(
+        NostrServices,
+        Effect.gen(function* () {
+          const binding = yield* BindingService;
+          const comments = yield* NostrCommentService;
+          const vault = yield* VaultService;
+          yield* Effect.addFinalizer(() => Effect.logInfo("[Nostr] Shutdown"));
+          yield* Effect.logInfo("[Nostr] Services Initialized");
+          return { relays: resolved.relays, binding, comments, vault };
+        }),
+      ).pipe(Layer.provide(services));
     }),
 
-  shutdown: () =>
-    Effect.gen(function* () {
-      yield* Effect.logInfo("[Nostr] Shutdown");
-    }),
-
-  createRouter: (services, builder) => {
-    const { binding, comments, vault } = services;
+  createRouter: (builder) => {
+    const nostr = (context: { "effect/context": Context.Context<NostrServices> }) =>
+      Context.get(context["effect/context"], NostrServices);
     const mw = createAuthMiddleware(builder);
 
     // DEV-ONLY: local `bos dev` runs the auth plugin remotely; without a cloud
@@ -104,13 +112,13 @@ export default createPlugin.withPlugins<PluginsClient>()({
         }
         return next({ context: { nearAccountId } });
       },
-    ) as DecoratedMiddleware<AuthContext, { nearAccountId: string }, any, any, any, any>;
+    ) as DecoratedMiddleware<AuthContext, { nearAccountId: string }, any, any, any>;
 
     const auth = devRequireAuth ?? mw;
 
     return {
-      listRelays: builder.listRelays.handler(async () => ({
-        relays: services.relays,
+      listRelays: builder.listRelays.handler(async ({ context }) => ({
+        relays: nostr(context).relays,
       })),
 
       ping: builder.ping.handler(async () => ({
@@ -118,25 +126,27 @@ export default createPlugin.withPlugins<PluginsClient>()({
         timestamp: new Date().toISOString(),
       })),
 
-      getBinding: builder.getBinding.handler(({ input }) =>
-        runEffect(binding.getBindingOutput(input.nearAccountId)),
+      getBinding: builder.getBinding.handler(({ input, context }) =>
+        runEffect(nostr(context).binding.getBindingOutput(input.nearAccountId)),
       ),
 
-      getIdentity: builder.getIdentity.handler(({ input }) =>
-        runEffect(binding.getIdentity(input.nearAccountId, input.enrichProfile)),
+      getIdentity: builder.getIdentity.handler(({ input, context }) =>
+        runEffect(nostr(context).binding.getIdentity(input.nearAccountId, input.enrichProfile)),
       ),
 
       createChallenge: builder.createChallenge
         .use(auth.requireAuth)
         .use(requireNearAccount)
-        .handler(({ context }) => runEffect(binding.createChallenge(context.nearAccountId))),
+        .handler(({ context }) =>
+          runEffect(nostr(context).binding.createChallenge(context.nearAccountId)),
+        ),
 
       verifyBinding: builder.verifyBinding
         .use(auth.requireAuth)
         .use(requireNearAccount)
         .handler(async ({ input, context }) => {
           const result = await runEffect(
-            binding.verifyChallenge(input.event, context.nearAccountId),
+            nostr(context).binding.verifyChallenge(input.event, context.nearAccountId),
           );
           return {
             valid: result.valid,
@@ -151,7 +161,7 @@ export default createPlugin.withPlugins<PluginsClient>()({
         .use(requireNearAccount)
         .handler(({ input, context }) =>
           runEffect(
-            binding.prepareBindingWrite({
+            nostr(context).binding.prepareBindingWrite({
               nostrPubkey: input.nostrPubkey,
               relay: input.relay,
               proof: input.proof,
@@ -160,9 +170,9 @@ export default createPlugin.withPlugins<PluginsClient>()({
           ),
         ),
 
-      listComments: builder.listComments.handler(({ input }) =>
+      listComments: builder.listComments.handler(({ input, context }) =>
         runEffect(
-          comments.listComments({
+          nostr(context).comments.listComments({
             target: input.target,
             targetType: input.targetType,
             adapterType: input.adapterType ?? "standard",
@@ -178,9 +188,9 @@ export default createPlugin.withPlugins<PluginsClient>()({
       createComment: builder.createComment
         .use(auth.requireAuth)
         .use(requireNearAccount)
-        .handler(({ input }) =>
+        .handler(({ input, context }) =>
           runEffect(
-            comments.publishSigned({
+            nostr(context).comments.publishSigned({
               event: input.event,
               target: input.target,
               targetType: input.targetType,
@@ -189,38 +199,48 @@ export default createPlugin.withPlugins<PluginsClient>()({
           ),
         ),
 
-      listChannels: builder.listChannels.handler(() =>
-        runEffect(comments.listChannels("buzz")).then((data) => ({ data })),
+      listChannels: builder.listChannels.handler(({ context }) =>
+        runEffect(nostr(context).comments.listChannels("buzz")).then((data) => ({ data })),
       ),
 
       vaultPut: builder.vaultPut
         .use(auth.requireAuth)
         .use(requireNearAccount)
-        .handler(({ input, context }) => runEffect(vault.store(context.nearAccountId, input.nsec))),
+        .handler(({ input, context }) =>
+          runEffect(nostr(context).vault.store(context.nearAccountId, input.nsec)),
+        ),
 
       vaultGet: builder.vaultGet
         .use(auth.requireAuth)
         .use(requireNearAccount)
-        .handler(({ context }) => runEffect(vault.load(context.nearAccountId))),
+        .handler(({ context }) => runEffect(nostr(context).vault.load(context.nearAccountId))),
 
       vaultDelete: builder.vaultDelete
         .use(auth.requireAuth)
         .use(requireNearAccount)
         .handler(({ context }) =>
-          runEffect(vault.remove(context.nearAccountId)).then((deleted) => ({
+          runEffect(nostr(context).vault.remove(context.nearAccountId)).then((deleted) => ({
             deleted,
           })),
         ),
 
-      queryEvents: builder.queryEvents.handler(({ input, signal }) =>
+      queryEvents: builder.queryEvents.handler(({ input, context, signal }) =>
         runEffect(
-          comments.rawQuery({ filter: toRelayFilter(input.filter), relays: input.relays, signal }),
+          nostr(context).comments.rawQuery({
+            filter: toRelayFilter(input.filter),
+            relays: input.relays,
+            signal,
+          }),
         ),
       ),
 
-      subscribeEvents: builder.subscribeEvents.handler(async function* ({ input, signal }) {
+      subscribeEvents: builder.subscribeEvents.handler(async function* ({
+        input,
+        context,
+        signal,
+      }) {
         const stream = await runEffect(
-          comments.rawSubscribe({
+          nostr(context).comments.rawSubscribe({
             filter: toRelayFilter(input.filter),
             relays: input.relays,
             signal,
@@ -229,12 +249,12 @@ export default createPlugin.withPlugins<PluginsClient>()({
         yield* stream;
       }),
 
-      publishEvent: builder.publishEvent.handler(({ input }) =>
-        runEffect(comments.rawPublish({ event: input.event, relays: input.relays })),
+      publishEvent: builder.publishEvent.handler(({ input, context }) =>
+        runEffect(nostr(context).comments.rawPublish({ event: input.event, relays: input.relays })),
       ),
 
-      getProfile: builder.getProfile.handler(({ input }) =>
-        runEffect(comments.getProfile(input.pubkey)),
+      getProfile: builder.getProfile.handler(({ input, context }) =>
+        runEffect(nostr(context).comments.getProfile(input.pubkey)),
       ),
     };
   },

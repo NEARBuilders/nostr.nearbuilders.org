@@ -34,7 +34,7 @@ BuzzAdapter             (src/nostr-core/adapters/buzz.ts)
 
 ## Configuration
 
-Variables (bos.config.json → plugin.dev.ts):
+Variables (`bos.app.ts` → `plugins.nostr.variables`; `plugin.dev.ts` for standalone dev):
 
 | Variable | Default | Notes |
 | --- | --- | --- |
@@ -57,11 +57,11 @@ Misconfigured `BUZZ_NSEC` fails the plugin at initialize (fail-fast, not silent 
 ## Development
 
 ```bash
-bun install
-bun run dev        # bos dev
-bun test           # vitest, from the repo root via `bun run --cwd plugins/nostr test`
-bun run typecheck
-bun run lint
+pnpm install
+pnpm run dev                       # bos dev, from the repo root
+pnpm --dir plugins/nostr run test  # vitest
+pnpm --dir plugins/nostr run typecheck
+pnpm run lint
 ```
 
 ## Tests
@@ -170,8 +170,8 @@ filter, acknowledgement, and EOSE semantics, and
 [NIP-42](https://github.com/nostr-protocol/nips/blob/master/42.md) for optional relay
 authentication.
 
-Run `bun run test` for source/runtime and HTTP tests against local WebSocket relays.
-Run `bun run test:bundle` to build and load the actual Module Federation artifact,
+Run `pnpm run test` for source/runtime and HTTP tests against local WebSocket relays.
+Run `pnpm run test:bundle` to build and load the actual Module Federation artifact,
 then prove publishing, queries, streaming, and cleanup. The bundle test registers
 the package's canonical remote name (`@every-plugin/nostr`), matching the emitted
 container, and exercises the bundled `ws` implementation without native addons.

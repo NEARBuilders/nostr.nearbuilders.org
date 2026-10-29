@@ -1,4 +1,4 @@
-import { Effect } from "every-plugin/effect";
+import { Effect } from "effect";
 import type { NostrResolvedConfig } from "./nostr-config";
 
 const KV_TIMEOUT_MS = 5_000;
@@ -27,4 +27,4 @@ export const readKvBindingEntry = (
         : (entry.value as KvBindingEntry);
     },
     catch: () => null,
-  }).pipe(Effect.catchAll(() => Effect.succeed(null)));
+  }).pipe(Effect.catch(() => Effect.succeed(null)));

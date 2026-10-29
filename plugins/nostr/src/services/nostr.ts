@@ -1,5 +1,5 @@
-import { Context, Effect, Layer, Option } from "every-plugin/effect";
-import { ORPCError } from "every-plugin/orpc";
+import { ORPCError } from "@orpc/server";
+import { Context, Effect, Layer, Option } from "effect";
 import { readKvBindingEntry } from "../lib/fastnear-kv";
 import type { NostrResolvedConfig } from "../lib/nostr-config";
 import { NostrConfigTag } from "../lib/nostr-config";
@@ -56,10 +56,10 @@ export interface NostrCommentServiceShape {
   readonly getProfile: (pubkey: string) => Effect.Effect<NostrProfile | null, never>;
 }
 
-export class NostrCommentService extends Context.Tag("nostr/NostrCommentService")<
+export class NostrCommentService extends Context.Service<
   NostrCommentService,
   NostrCommentServiceShape
->() {}
+>()("nostr/NostrCommentService") {}
 
 const badRequest = (message: string): ORPCError<"BAD_REQUEST", unknown> =>
   new ORPCError("BAD_REQUEST", { message, data: {} });
@@ -139,7 +139,7 @@ const catchAllEmpty =
       return fallback;
     });
 
-export const NostrCommentServiceLive = Layer.scoped(
+export const NostrCommentServiceLive = Layer.effect(
   NostrCommentService,
   Effect.gen(function* () {
     const cfg: NostrResolvedConfig = yield* NostrConfigTag;
@@ -170,7 +170,7 @@ export const NostrCommentServiceLive = Layer.scoped(
               since: opts.since,
             }),
           catch: (e: unknown) => e,
-        }).pipe(Effect.catchAll(catchAllEmpty({ events: [] }, "adapter.query")));
+        }).pipe(Effect.catch(catchAllEmpty({ events: [] }, "adapter.query")));
 
         let filtered = queried.events.map((e) =>
           toComment(e, opts.target, opts.targetType, opts.adapterType),
@@ -200,7 +200,7 @@ export const NostrCommentServiceLive = Layer.scoped(
                 try: () => standard.getProfile(pk),
                 catch: (e: unknown) => e,
               }).pipe(
-                Effect.catchAll(catchAllEmpty(null as NostrProfile | null, "standard.getProfile")),
+                Effect.catch(catchAllEmpty(null as NostrProfile | null, "standard.getProfile")),
               ),
             { concurrency: 5 },
           );
@@ -247,7 +247,7 @@ export const NostrCommentServiceLive = Layer.scoped(
         const events = yield* Effect.tryPromise({
           try: () => adapter.listChannels(),
           catch: (e: unknown) => e,
-        }).pipe(Effect.catchAll(catchAllEmpty([] as NostrEvent[], "adapter.listChannels")));
+        }).pipe(Effect.catch(catchAllEmpty([] as NostrEvent[], "adapter.listChannels")));
         return events.map((e) => {
           const id = e.tags.find((t) => t[0] === "d")?.[1];
           const name = e.tags.find((t) => t[0] === "name")?.[1];
@@ -303,7 +303,7 @@ export const NostrCommentServiceLive = Layer.scoped(
         try: () => standard.getProfile(pubkey),
         catch: (e: unknown) => e,
       }).pipe(
-        Effect.catchAll((error) =>
+        Effect.catch((error) =>
           Effect.gen(function* () {
             yield* Effect.logWarning("[Nostr] standard.getProfile failed", {
               pubkey,

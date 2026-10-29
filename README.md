@@ -13,7 +13,7 @@
 
 NEAR-powered identity and decentralized comments on the [Nostr](https://nostr.com/) protocol, deployed at [nostr.nearbuilders.org](https://nostr.nearbuilders.org).
 
-This is a child project of the [everything.dev](https://github.com/nearbuilders/everything-dev) runtime platform. It extends the `dev.everything.near` runtime (`bos://dev.everything.near/dev.everything.dev`) and composes a host, UI, API, and a `nostr` plugin through a single published `bos.config.json` — all configurations are on-chain, inspectable, and verifiable on NEAR.
+This is a child project of the [everything.dev](https://github.com/nearbuilders/everything-dev) runtime platform. It extends the `dev.everything.near` runtime (`bos://dev.everything.near/everything.dev`, platform `2.0.0-rc.24`) and composes a host, UI, API, and a `nostr` plugin. `bos.app.ts` is the authored descriptor; its published config is on-chain, inspectable, and verifiable on NEAR. `bos.dev.ts` holds dev-only overrides and is never published.
 
 ## What it does
 
@@ -42,7 +42,8 @@ The UI (`ui/src`) also ships a client-side Nostr layer (`ui/src/lib/nostr`) for 
 
 ```
 .
-├── bos.config.json       # Runtime composition (on-chain config)
+├── bos.app.ts            # Authored runtime descriptor (published on-chain)
+├── bos.dev.ts            # Dev-only overrides (never published)
 ├── api/                  # Reference API workspace (oRPC)
 ├── ui/                   # Frontend (React + TanStack Router)
 │   └── src/lib/nostr/    # Client-side Nostr helpers (keys, relays, bindings)
@@ -54,11 +55,11 @@ The UI (`ui/src`) also ships a client-side Nostr layer (`ui/src/lib/nostr`) for 
 
 ```bash
 cp .env.example .env   # First time only
-bun install
-bun run dev
+pnpm install
+pnpm run dev
 ```
 
-Requires [Bun](https://bun.sh/) and a NEAR wallet to exercise the authenticated flows.
+Requires Node 24, [pnpm](https://pnpm.io/) and a NEAR wallet to exercise the authenticated flows. Do not use bun: CI fails on any `bun.lock`.
 
 ## Check Status
 
@@ -73,9 +74,9 @@ bos info      # Show configuration
 Before committing:
 
 ```bash
-bun run test    # Run all tests
-bun typecheck   # Type check all packages
-bun lint        # Run linting
+pnpm run test        # Run all tests
+pnpm run typecheck   # Type check all packages
+pnpm run lint        # Run linting
 ```
 
 ## Related Projects

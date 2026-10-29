@@ -1,32 +1,44 @@
+import { Effect, Context as EffectContext, Layer } from "effect";
 import { createPlugin } from "every-plugin";
-import { Effect } from "every-plugin/effect";
-import { z } from "every-plugin/zod";
+import { z } from "zod";
 import { contract } from "./contract";
 import { ContextSchema } from "./lib/context";
-import type { PluginsClient } from "./lib/plugins-types.gen";
+import type { PluginEntries } from "./lib/plugin-clients";
 
-export default createPlugin.withPlugins<PluginsClient>()({
+class ApiServices extends EffectContext.Service<ApiServices, Record<string, never>>()(
+  "api/ApiServices",
+) {}
+
+export default createPlugin.withPlugins<PluginEntries>()({
   variables: z.object({}),
 
-  secrets: z.object({}),
+  secrets: z.object({
+    API_DATABASE_URL: z.string().default("pglite:.bos/api/:memory:"),
+    BETTER_AUTH_SECRET: z.string().default(""),
+  }),
 
   context: ContextSchema,
 
   contract,
 
-  initialize: (_config, _plugins, _tools) => {
-    console.log("[API] Services Initialized");
-    return Effect.succeed({});
-  },
+  initialize: () =>
+    Effect.sync(() =>
+      Layer.effect(
+        ApiServices,
+        Effect.acquireRelease(
+          Effect.sync(() => {
+            console.log("[API] Services Initialized");
+            return {};
+          }),
+          () => Effect.log("[API] Shutdown"),
+        ),
+      ),
+    ),
 
-  shutdown: () => Effect.log("[API] Shutdown"),
-
-  createRouter: (_services, builder) => {
-    return {
-      ping: builder.ping.handler(async () => ({
-        status: "ok",
-        timestamp: new Date().toISOString(),
-      })),
-    };
-  },
+  createRouter: (builder) => ({
+    ping: builder.ping.handler(async () => ({
+      status: "ok" as const,
+      timestamp: new Date().toISOString(),
+    })),
+  }),
 });

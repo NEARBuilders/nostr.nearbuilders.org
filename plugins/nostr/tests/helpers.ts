@@ -1,5 +1,5 @@
-import { Cause, Effect, Exit, Layer } from "every-plugin/effect";
-import type { ORPCError } from "every-plugin/orpc";
+import type { ORPCError } from "@orpc/server";
+import { Cause, Effect, Exit, Layer } from "effect";
 import { finalizeEvent, generateSecretKey } from "nostr-tools/pure";
 import { expect, vi } from "vitest";
 import { NostrConfigLive, type NostrResolvedConfig } from "../src/lib/nostr-config";

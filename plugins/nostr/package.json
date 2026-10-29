@@ -1,7 +1,7 @@
 {
   "name": "@every-plugin/nostr",
   "version": "1.1.0",
-  "description": "Nostr integration plugin — NEAR account binding, comments, relay operations",
+  "description": "Nostr integration plugin \u2014 NEAR account binding, comments, relay operations",
   "type": "module",
   "exports": {
     ".": {
@@ -18,31 +18,32 @@
   },
   "dependencies": {
     "@orpc/contract": "catalog:",
+    "@orpc/openapi": "catalog:",
     "@orpc/server": "catalog:",
+    "effect": "catalog:",
     "nostr-tools": "^2.10.0",
-    "ws": "^8.21.2"
+    "ws": "^8.21.2",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@effect/language-service": "^0.85.1",
     "@module-federation/node": "catalog:",
+    "@orpc/client": "catalog:",
     "@rspack/cli": "catalog:",
     "@rspack/core": "catalog:",
     "@types/node": "catalog:",
     "@types/ws": "^8.18.1",
     "dotenv": "^17.2.3",
-    "everything-dev": "catalog:",
     "every-plugin": "catalog:",
+    "everything-dev": "catalog:",
     "vite-tsconfig-paths": "^5.1.4",
-    "zephyr-rspack-plugin": "catalog:",
     "vitest": "catalog:"
   },
   "scripts": {
-    "build": "bun run build:types && rspack build",
-    "build:types": "tsc -p tsconfig.contract.json",
-    "deploy": "bun run build:types && DEPLOY=true rspack build",
-    "dev": "bun run build:types && rspack serve",
+    "build": "every-plugin build",
+    "dev": "every-plugin dev",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
-    "test:bundle": "bun run build && vitest run --config vitest.bundle.config.ts"
+    "test:bundle": "pnpm run build && vitest run --config vitest.bundle.config.ts"
   }
 }

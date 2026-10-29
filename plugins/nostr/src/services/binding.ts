@@ -1,5 +1,5 @@
-import { Context, Effect, Layer } from "every-plugin/effect";
-import { ORPCError } from "every-plugin/orpc";
+import { ORPCError } from "@orpc/server";
+import { Context, Effect, Layer } from "effect";
 import { verifyEvent } from "nostr-tools/pure";
 import { type KvBindingEntry, readKvBindingEntry } from "../lib/fastnear-kv";
 import { NostrConfigTag, type NostrResolvedConfig } from "../lib/nostr-config";
@@ -64,10 +64,9 @@ export interface BindingServiceShape {
   }) => Effect.Effect<BindingWriteArgs, never>;
 }
 
-export class BindingService extends Context.Tag("nostr/BindingService")<
-  BindingService,
-  BindingServiceShape
->() {}
+export class BindingService extends Context.Service<BindingService, BindingServiceShape>()(
+  "nostr/BindingService",
+) {}
 
 const readKv = (
   cfg: NostrResolvedConfig,
@@ -94,7 +93,7 @@ const readProfile = (relays: string[], pubkey: string): Effect.Effect<NostrProfi
       return { pubkey, ...parsed };
     },
     catch: () => null,
-  }).pipe(Effect.catchAll(() => Effect.succeed(null)));
+  }).pipe(Effect.catch(() => Effect.succeed(null)));
 
 const badRequest = (message: string): ORPCError<"BAD_REQUEST", unknown> =>
   new ORPCError("BAD_REQUEST", { message, data: {} });

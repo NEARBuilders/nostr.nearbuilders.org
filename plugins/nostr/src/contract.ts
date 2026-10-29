@@ -1,6 +1,7 @@
 import { BAD_REQUEST, UNAUTHORIZED } from "every-plugin/errors";
-import { eventIterator, oc } from "every-plugin/orpc";
-import { z } from "every-plugin/zod";
+import "@orpc/openapi/extensions/route";
+import { eventIterator, oc } from "@orpc/contract";
+import { z } from "zod";
 import { RelayErrors } from "./lib/relay-errors";
 import {
   NostrCommentSchema,
