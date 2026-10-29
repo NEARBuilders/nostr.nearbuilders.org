@@ -32,5 +32,6 @@ jobs:
     with:
       working_directory: .
       verbose: ${{ inputs.verbose == true }}
+      smoke: true
       storage_origin: ${{ inputs.storage_origin || vars.BOS_STORAGE_ORIGIN || 'https://upload.everything.dev' }}
     secrets: inherit
