@@ -11,7 +11,7 @@ export default App({
   title: "Nostr NEAR Builders",
   description: "NEAR-powered identity and decentralized comments on the Nostr protocol.",
   staging: {
-    domain: "dev.everything.dev",
+    domain: "staging.nostr.nearbuilders.org",
   },
   repository: "https://github.com/NEARBuilders/nostr.nearbuilders.org",
   ci: {
