@@ -492,6 +492,9 @@ importers:
       everything-dev:
         specifier: 'catalog:'
         version: 2.0.0-rc.39(122b17b6bd548d6987d28d9a80490cb3)
+      tsx:
+        specifier: ^4.20.3
+        version: 4.23.15
       vite-tsconfig-paths:
         specifier: ^5.1.4
         version: 5.1.4(typescript@7.0.2)(vite@8.3.5(@types/node@25.9.9)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))

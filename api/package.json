@@ -43,7 +43,8 @@
     "everything-dev": "catalog:",
     "vite-tsconfig-paths": "^5.1.4",
     "vitest": "catalog:",
-    "@module-federation/runtime-tools": "catalog:"
+    "@module-federation/runtime-tools": "catalog:",
+    "tsx": "^4.20.3"
   },
   "scripts": {
     "build": "every-plugin build",
@@ -55,6 +56,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "auth:check-schema": "tsx scripts/shared-auth/check-schema.ts",
+    "auth:cutover": "tsx scripts/shared-auth/cutover.ts"
   }
 }
