@@ -7,6 +7,7 @@ import { contract } from "./contract";
 import type { AuthContext } from "./lib/auth";
 import { createAuthMiddleware } from "./lib/auth";
 import { ContextSchema, runEffect } from "./lib/context";
+import { controlledNearAccounts } from "./lib/near-accounts";
 import {
   NostrConfigLive,
   NostrSecretsSchema,
@@ -101,18 +102,31 @@ export default createPlugin.withPlugins<PluginsClient>()({
 
     const requireNearAccount = builder.middleware(
       async ({ context, next }: { context: AuthContext; next: any }) => {
-        const nearAccountId = context.near?.primaryAccountId;
-        if (!nearAccountId) {
+        const accounts = controlledNearAccounts(context.near);
+        if (accounts.length === 0) {
           if (DEV_FAKE_AUTH) {
-            return next({ context: { nearAccountId: "jeanguest.testnet" } });
+            return next({
+              context: {
+                nearAccountId: "jeanguest.testnet",
+                controlledNearAccounts: ["jeanguest.testnet"],
+              },
+            });
           }
           throw new ORPCError("UNAUTHORIZED", {
             message: "NEAR account required. Connect a NEAR wallet first.",
           });
         }
-        return next({ context: { nearAccountId } });
+        return next({
+          context: { nearAccountId: accounts[0], controlledNearAccounts: accounts },
+        });
       },
-    ) as DecoratedMiddleware<AuthContext, { nearAccountId: string }, any, any, any>;
+    ) as DecoratedMiddleware<
+      AuthContext,
+      { nearAccountId: string; controlledNearAccounts: string[] },
+      any,
+      any,
+      any
+    >;
 
     const auth = devRequireAuth ?? mw;
 
@@ -213,15 +227,17 @@ export default createPlugin.withPlugins<PluginsClient>()({
       vaultGet: builder.vaultGet
         .use(auth.requireAuth)
         .use(requireNearAccount)
-        .handler(({ context }) => runEffect(nostr(context).vault.load(context.nearAccountId))),
+        .handler(({ context }) =>
+          runEffect(nostr(context).vault.loadAny(context.controlledNearAccounts)),
+        ),
 
       vaultDelete: builder.vaultDelete
         .use(auth.requireAuth)
         .use(requireNearAccount)
         .handler(({ context }) =>
-          runEffect(nostr(context).vault.remove(context.nearAccountId)).then((deleted) => ({
-            deleted,
-          })),
+          runEffect(nostr(context).vault.removeAny(context.controlledNearAccounts)).then(
+            (deleted) => ({ deleted }),
+          ),
         ),
 
       queryEvents: builder.queryEvents.handler(({ input, context, signal }) =>

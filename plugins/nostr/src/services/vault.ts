@@ -66,8 +66,8 @@ export class VaultService extends Context.Service<
   VaultService,
   {
     store(nearAccount: string, nsec: string): Effect.Effect<{ createdAt: string }, Error>;
-    load(nearAccount: string): Effect.Effect<VaultEntry | null, Error>;
-    remove(nearAccount: string): Effect.Effect<boolean, Error>;
+    loadAny(nearAccounts: string[]): Effect.Effect<VaultEntry | null, Error>;
+    removeAny(nearAccounts: string[]): Effect.Effect<boolean, Error>;
   }
 >()("nostr.VaultService") {}
 
@@ -83,8 +83,9 @@ export const VaultServiceLive = Layer.effect(
       );
       return {
         store: () => Effect.fail(new Error("Vault disabled: VAULT_DATABASE_URL not configured")),
-        load: () => Effect.fail(new Error("Vault disabled: VAULT_DATABASE_URL not configured")),
-        remove: () => Effect.fail(new Error("Vault disabled: VAULT_DATABASE_URL not configured")),
+        loadAny: () => Effect.fail(new Error("Vault disabled: VAULT_DATABASE_URL not configured")),
+        removeAny: () =>
+          Effect.fail(new Error("Vault disabled: VAULT_DATABASE_URL not configured")),
       };
     }
 
@@ -137,12 +138,17 @@ export const VaultServiceLive = Layer.effect(
         catch: () => new Error("vault: store failed"),
       });
 
-    const load = (nearAccount: string) =>
+    const loadAny = (nearAccounts: string[]) =>
       Effect.tryPromise({
         try: async () => {
+          if (nearAccounts.length === 0) return null;
           const res = await pool.query(
-            `SELECT ciphertext, created_at FROM nostr_key_vault WHERE near_account = $1`,
-            [nearAccount],
+            `SELECT near_account, ciphertext, created_at
+             FROM nostr_key_vault
+             WHERE near_account = ANY($1::text[])
+             ORDER BY array_position($1::text[], near_account)
+             LIMIT 1`,
+            [nearAccounts],
           );
           if (res.rows.length === 0) return null;
           const row = res.rows[0];
@@ -154,11 +160,12 @@ export const VaultServiceLive = Layer.effect(
         catch: () => new Error("vault: load failed"),
       });
 
-    const remove = (nearAccount: string) =>
+    const removeAny = (nearAccounts: string[]) =>
       Effect.tryPromise({
         try: async () => {
-          const res = await pool.query(`DELETE FROM nostr_key_vault WHERE near_account = $1`, [
-            nearAccount,
+          if (nearAccounts.length === 0) return false;
+          const res = await pool.query(`DELETE FROM nostr_key_vault WHERE near_account = ANY($1)`, [
+            nearAccounts,
           ]);
           return (res.rowCount ?? 0) > 0;
         },
@@ -167,6 +174,6 @@ export const VaultServiceLive = Layer.effect(
 
     yield* Effect.logInfo("[Vault] nsec vault ready (AES-256-GCM at rest)");
 
-    return { store, load, remove };
+    return { store, loadAny, removeAny };
   }),
 );
