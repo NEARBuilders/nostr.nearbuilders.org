@@ -19,6 +19,10 @@ export default App({
       service: "nostr-app",
     },
   },
+  auth: {
+    extends: "bos://nearbuilding.near/nearbuilders.org#app.auth",
+    ui: false,
+  },
   ui: {
     path: "ui",
   },
