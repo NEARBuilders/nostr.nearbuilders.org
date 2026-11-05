@@ -30,7 +30,7 @@ jobs:
         run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Generate types
-        run: pnpm run postinstall
+        run: pnpm run types:gen
 
       - name: Build the plugin remote and load it through the runtime
         run: pnpm --dir plugins/nostr run test:bundle
